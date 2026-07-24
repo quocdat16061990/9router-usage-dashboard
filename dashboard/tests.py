@@ -673,6 +673,67 @@ class UsageReportTests(TestCase):
         self.assertContains(response, "$6.0000")
         self.assertContains(response, "40.0%")
 
+    def test_user_management_shows_selected_users_request_history_and_model(self):
+        self._write_usage(
+            [
+                {
+                    "apiKey": self.customer_key_value,
+                    "timestamp": "2026-07-17T01:02:03Z",
+                    "model": "GPT-5.6-sol",
+                    "cost": 0.25,
+                },
+                {
+                    "apiKey": self.other_key_value,
+                    "timestamp": "2026-07-17T02:00:00Z",
+                    "model": "private-other-model",
+                    "cost": 9,
+                },
+            ]
+        )
+        admin_user = get_user_model().objects.create_superuser(
+            username="admin@example.com", password="test-password"
+        )
+        customer = get_user_model().objects.create_user(
+            username="customer@example.com",
+            email="customer@example.com",
+            password="test-password",
+        )
+        UserApiAccess.objects.create(
+            user=customer,
+            external_api_key_id=self.customer_key_id,
+            api_name="Khách hàng A",
+        )
+        self.client.force_login(admin_user)
+
+        with override_settings(NINEROUTER_SQLITE_FILE=self.database_file):
+            response = self.client.get(
+                "/nguoi-dung/", {"history_user": customer.id}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lịch sử request")
+        self.assertContains(response, "Model đang sử dụng")
+        self.assertContains(response, "GPT-5.6-sol")
+        self.assertContains(response, "Khách hàng A")
+        self.assertNotContains(response, "private-other-model")
+
+    def test_user_management_history_is_empty_without_assigned_api(self):
+        admin_user = get_user_model().objects.create_superuser(
+            username="admin@example.com", password="test-password"
+        )
+        customer = get_user_model().objects.create_user(
+            username="customer@example.com", password="test-password"
+        )
+        self.client.force_login(admin_user)
+
+        with override_settings(NINEROUTER_SQLITE_FILE=self.database_file):
+            response = self.client.get(
+                "/nguoi-dung/", {"history_user": customer.id}
+            )
+
+        self.assertContains(response, "Người dùng này chưa có request nào")
+        self.assertEqual(response.context["history_report"]["activity_total"], 0)
+
     def test_user_management_includes_closed_cost_and_marks_over_limit(self):
         admin_user = get_user_model().objects.create_superuser(
             username="admin@example.com", password="test-password"

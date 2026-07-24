@@ -650,6 +650,21 @@ def user_management(request):
         ]
     else:
         member_users = users
+    history_user = None
+    history_report = None
+    history_user_id = request.GET.get("history_user")
+    if history_user_id:
+        history_user = get_object_or_404(
+            User, pk=history_user_id, is_superuser=False
+        )
+        history_api_ids = list(
+            history_user.api_accesses.values_list("external_api_key_id", flat=True)
+        )
+        history_report = usage_activity_report(
+            {"period": "all"},
+            allowed_api_key_ids=history_api_ids,
+            page=request.GET.get("history_page", 1),
+        )
     return render(
         request,
         "dashboard/user_management.html",
@@ -667,5 +682,7 @@ def user_management(request):
             ),
             "sort_options": sort_options,
             "selected_sort": selected_sort,
+            "history_user": history_user,
+            "history_report": history_report,
         },
     )

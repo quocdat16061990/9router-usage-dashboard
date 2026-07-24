@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quản lý người dùng - Chi phí API ALT</title>
-    <link rel="stylesheet" href="/static/css/app.css?v=20260722-member-report-search">
+    <link rel="stylesheet" href="/static/css/app.css?v=20260724-user-request-history">
 </head>
 <body class="management-page">
 <div class="app-shell">
@@ -152,13 +152,53 @@
                             <td><div class="usage-progress"><div class="usage-progress-track"><span class="{{ user.usage_level }}" style="width: {{ user.usage_percent|floatformat:'0u' }}%"></span></div><small>{{ user.usage_percent|floatformat:"1u" }}%</small></div></td>
                             <td><span class="status-pill {% if not user.is_active %}inactive{% endif %}">{% if user.is_active %}Đang hoạt động{% else %}Đã khóa{% endif %}</span></td>
                             <td><strong class="member-cost-value">${{ user.filtered_usage_cost|floatformat:"6u" }}</strong></td>
-                            <td><div class="table-actions"><a class="table-edit-link" href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a><form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}"><button class="table-delete-button" type="submit">Xóa</button></form></div></td>
+                            <td><div class="table-actions"><a class="table-edit-link" href="?history_user={{ user.id }}&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Lịch sử request</a><a class="table-edit-link" href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a><form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}"><button class="table-delete-button" type="submit">Xóa</button></form></div></td>
                         </tr>
                         {% empty %}<tr><td colspan="9" class="empty">{% if member_search %}Không tìm thấy thành viên theo tên hoặc email “{{ member_search }}”.{% else %}Chưa có thành viên để báo cáo.{% endif %}</td></tr>{% endfor %}
                     </tbody>
                 </table>
             </div>
         </section>
+        {% if history_user and history_report %}
+        <section class="usage-card activity-card" id="request-history">
+            <div class="card-heading activity-heading">
+                <div>
+                    <p class="eyebrow">LỊCH SỬ NGƯỜI DÙNG</p>
+                    <h2>Request của {{ history_user.first_name|default:history_user.email|default:history_user.username }}</h2>
+                    <p>Hiển thị toàn bộ request thuộc các API đã cấp cho tài khoản này. Không hiển thị API key, prompt hoặc response.</p>
+                </div>
+                <div class="table-actions"><span class="result-count">{{ history_report.activity_total }} request</span><a class="table-edit-link" href="{% url 'user-management' %}">Đóng lịch sử</a></div>
+            </div>
+            <div class="table-wrap activity-table-wrap">
+                <table class="activity-table">
+                    <thead><tr><th>Thời gian (GMT+7)</th><th>Request</th><th>API</th><th>Model đang sử dụng</th><th>Endpoint</th><th>Trạng thái</th><th>Token vào / ra</th><th>Chi phí</th></tr></thead>
+                    <tbody>
+                        {% for row in history_report.activity_rows %}
+                        <tr>
+                            <td><strong>{{ row.occurred_at|date:'H:i:s' }}</strong><small>{{ row.occurred_at|date:'d/m/Y' }}</small></td>
+                            <td><code>#{{ row.request_id }}</code></td>
+                            <td><strong>{{ row.api_name }}</strong></td>
+                            <td><strong>{{ row.model }}</strong><small>{{ row.provider }}</small></td>
+                            <td><code>{{ row.endpoint }}</code></td>
+                            <td><span class="request-status {% if row.is_success %}success{% else %}failed{% endif %}">{% if row.is_success %}Thành công{% else %}{{ row.status|upper }}{% endif %}</span></td>
+                            <td><strong>{{ row.prompt_tokens }} / {{ row.completion_tokens }}</strong><small>Tổng {{ row.total_tokens }}</small></td>
+                            <td><strong class="cost-value">${{ row.cost|floatformat:6 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="empty" colspan="8"><strong>Người dùng này chưa có request nào.</strong></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if history_report.activity_total_pages > 1 %}
+            <nav class="activity-pagination" aria-label="Phân trang lịch sử request người dùng">
+                {% if history_report.activity_has_previous %}<a href="?history_user={{ history_user.id }}&history_page={{ history_report.activity_previous_page }}&sort={{ selected_sort }}#request-history">← Trang trước</a>{% else %}<span></span>{% endif %}
+                <strong>Trang {{ history_report.activity_page }} / {{ history_report.activity_total_pages }}</strong>
+                {% if history_report.activity_has_next %}<a href="?history_user={{ history_user.id }}&history_page={{ history_report.activity_next_page }}&sort={{ selected_sort }}#request-history">Trang sau →</a>{% else %}<span></span>{% endif %}
+            </nav>
+            {% endif %}
+        </section>
+        {% endif %}
     </main>
 </div>
 </body>
