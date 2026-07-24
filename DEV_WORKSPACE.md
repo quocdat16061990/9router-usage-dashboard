@@ -2,7 +2,20 @@
 
 Đây là môi trường DEV tách biệt, không dùng `.env`, database Django hoặc database 9Router production.
 
-## Chạy website
+## Website DEV chạy nền
+
+Website DEV được chạy tự động bởi user service `altcp-dashboard-dev.service` tại `127.0.0.1:8873`.
+
+```bash
+systemctl --user status altcp-dashboard-dev
+systemctl --user restart altcp-dashboard-dev
+systemctl --user stop altcp-dashboard-dev
+systemctl --user start altcp-dashboard-dev
+```
+
+Sau khi sửa code Python, chạy `systemctl --user restart altcp-dashboard-dev` để nạp thay đổi.
+
+## Chạy thủ công khi cần
 
 ```bash
 cd /home/dev-altcp/9router_usage_dashboard_dev
@@ -13,10 +26,10 @@ source .venv/bin/activate
 python manage.py runserver 127.0.0.1:8873
 ```
 
-Trên máy cá nhân, mở SSH tunnel:
+Trên máy cá nhân, mở SSH tunnel và giữ cửa sổ terminal này hoạt động:
 
 ```bash
-ssh -L 8873:127.0.0.1:8873 dev-altcp@IP_VPS
+ssh -N -L 8873:127.0.0.1:8873 dev-altcp@IP_VPS
 ```
 
 Sau đó truy cập `http://127.0.0.1:8873/`.
