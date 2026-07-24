@@ -1,0 +1,165 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Token Codex giúp tối ưu chi phí sử dụng AI với mức quy đổi 1 USD thanh toán nhận 10 USD hạn mức sử dụng.">
+    <title>Token Codex - Tiết kiệm đến 90% chi phí AI</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260720-logo">
+</head>
+<body class="landing-page">
+<header class="landing-nav">
+    <a class="landing-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ">
+        <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình">
+    </a>
+    <nav aria-label="Điều hướng chính">
+        <a href="#bang-gia">Bảng giá</a>
+        <a href="#quyen-loi">Quyền lợi</a>
+        <a href="#quy-trinh">Cách sử dụng</a>
+        <a href="{% url 'integration-guide' %}">Hướng dẫn tích hợp</a>
+    </nav>
+    <div class="landing-nav-actions">
+        {% if user.is_authenticated %}
+        <a class="landing-button secondary" href="{% url 'dashboard' %}">Vào trang quản lý</a>
+        {% else %}
+        <a class="landing-login" href="{% url 'login' %}">Đăng nhập</a>
+        <a class="landing-button small" href="{% url 'register' %}">Đăng ký</a>
+        {% endif %}
+    </div>
+</header>
+
+<main>
+    <section class="landing-hero">
+        <div class="landing-hero-copy">
+            <div class="landing-kicker"><span>Ưu đãi chi phí AI</span><strong>Tiết kiệm đến 90%</strong></div>
+            <h1>Tối ưu chi phí AI.<br><span>Sử dụng nhiều hơn, trả ít hơn.</span></h1>
+            <p class="landing-lead">Thanh toán <strong>1 USD</strong>, tài khoản nhận <strong>10 USD hạn mức sử dụng tương đương trên hệ thống chính hãng</strong>. Theo dõi chi phí rõ ràng và chủ động mua thêm khi cần.</p>
+            <div class="landing-cta-row">
+                {% if user.is_authenticated %}
+                <a class="landing-button large" href="{% url 'dashboard' %}">Vào trang quản lý <span>→</span></a>
+                {% else %}
+                <a class="landing-button large" href="{% url 'register' %}">Bắt đầu sử dụng <span>→</span></a>
+                <a class="landing-button secondary large" href="{% url 'login' %}">Tôi đã có tài khoản</a>
+                {% endif %}
+            </div>
+            <div class="landing-trust-row">
+                <span>✓ Đăng ký miễn phí</span>
+                <span>✓ Chỉ thanh toán khi mua hạn mức</span>
+                <span>✓ Quản lý chi phí minh bạch</span>
+            </div>
+        </div>
+        <aside class="landing-price-spotlight" aria-label="Ưu đãi quy đổi">
+            <p class="spotlight-label">MỨC QUY ĐỔI NỔI BẬT</p>
+            <div class="spotlight-equation">
+                <div><strong>1</strong><span>USD thanh toán</span></div>
+                <b>→</b>
+                <div class="spotlight-result"><strong>10</strong><span>USD hạn mức</span></div>
+            </div>
+            <div class="spotlight-saving"><span>Tiết kiệm</span><strong>90%</strong><small>so với mua trực tiếp</small></div>
+            <p class="spotlight-note">Ví dụ: thanh toán 250.000 VNĐ để nhận 100 USD hạn mức sử dụng.</p>
+        </aside>
+    </section>
+
+    <section class="landing-section pricing-section" id="bang-gia">
+        <div class="landing-section-heading">
+            <p class="eyebrow">SO SÁNH CHI PHÍ</p>
+            <h2>Thấy rõ lợi ích trước khi đăng ký</h2>
+            <p>Cùng nhu cầu sử dụng 10 USD hạn mức, Token Codex giúp bạn giảm đáng kể số tiền cần thanh toán.</p>
+        </div>
+        <div class="pricing-comparison">
+            <article class="pricing-card standard">
+                <span class="pricing-card-label">Mua trực tiếp chính hãng</span>
+                <div class="pricing-amount"><strong>10 USD</strong><span>thanh toán</span></div>
+                <div class="pricing-divider"></div>
+                <p>Nhận <strong>10 USD</strong> hạn mức sử dụng</p>
+                <span class="pricing-ratio">Tỷ lệ 1 : 1</span>
+            </article>
+            <div class="pricing-versus">VS</div>
+            <article class="pricing-card featured">
+                <span class="pricing-badge">LỰA CHỌN TIẾT KIỆM</span>
+                <span class="pricing-card-label">Token Codex</span>
+                <div class="pricing-amount"><strong>1 USD</strong><span>thanh toán</span></div>
+                <div class="pricing-divider"></div>
+                <p>Nhận <strong>10 USD</strong> hạn mức sử dụng</p>
+                <span class="pricing-ratio">Tỷ lệ 1 : 10</span>
+            </article>
+        </div>
+        <div class="pricing-examples">
+            <div><span>Thanh toán</span><strong>250.000 VNĐ</strong><small>10 USD</small><b>→</b><em>100 USD hạn mức</em></div>
+            <div><span>Thanh toán</span><strong>1.250.000 VNĐ</strong><small>50 USD</small><b>→</b><em>500 USD hạn mức</em></div>
+            <div><span>Thanh toán</span><strong>2.500.000 VNĐ</strong><small>100 USD</small><b>→</b><em>1.000 USD hạn mức</em></div>
+        </div>
+    </section>
+
+    <section class="landing-section benefit-section" id="quyen-loi">
+        <div class="landing-section-heading left">
+            <p class="eyebrow">GIÁ TRỊ NHẬN ĐƯỢC</p>
+            <h2>Không chỉ tiết kiệm, bạn còn kiểm soát được toàn bộ chi phí</h2>
+        </div>
+        <div class="benefit-grid">
+            <article><span>01</span><h3>Tiết kiệm đến 90%</h3><p>Tối ưu ngân sách trong khi vẫn có hạn mức lớn để làm việc với AI.</p></article>
+            <article><span>02</span><h3>API riêng của bạn</h3><p>Chủ động tạo, quản lý và thu hồi API ngay trong tài khoản cá nhân.</p></article>
+            <article><span>03</span><h3>Chi phí minh bạch</h3><p>Theo dõi request, token đầu vào, token đầu ra và chi phí đến từng lượt gọi.</p></article>
+            <article><span>04</span><h3>Thanh toán thuận tiện</h3><p>Chọn gói, quét VietQR và hệ thống tự động ghi nhận khi thanh toán đủ.</p></article>
+            <article><span>05</span><h3>Cảnh báo hạn mức</h3><p>Nhận thông báo khi mức sử dụng đạt ngưỡng để chủ động bổ sung ngân sách.</p></article>
+            <article><span>06</span><h3>Bảo mật API key</h3><p>Khóa đầy đủ chỉ hiển thị một lần và không được lưu lại trong dashboard.</p></article>
+        </div>
+    </section>
+
+    <section class="landing-section process-section" id="quy-trinh">
+        <div class="landing-section-heading">
+            <p class="eyebrow">4 BƯỚC ĐƠN GIẢN</p>
+            <h2>Từ đăng ký đến sử dụng chỉ trong vài phút</h2>
+        </div>
+        <div class="process-grid">
+            <article><strong>1</strong><h3>Tạo tài khoản</h3><p>Đăng ký miễn phí bằng email của bạn.</p></article>
+            <article><strong>2</strong><h3>Chọn hạn mức</h3><p>Chọn gói phù hợp với nhu cầu sử dụng.</p></article>
+            <article><strong>3</strong><h3>Thanh toán VietQR</h3><p>Quét mã và chuyển đúng nội dung đơn hàng.</p></article>
+            <article><strong>4</strong><h3>Tạo API và sử dụng</h3><p>Nhận hạn mức, tạo khóa API và bắt đầu làm việc.</p></article>
+        </div>
+    </section>
+
+    <section class="landing-section integration-preview-section">
+        <div class="integration-preview-copy">
+            <p class="eyebrow">OPENAI-COMPATIBLE API</p>
+            <h2>Tích hợp Token Codex vào công cụ bạn đang dùng</h2>
+            <p>Dùng một Base URL thống nhất cho OpenClaw, Codex trong Antigravity, Hermes Agent, Python, Node.js và các dự án hỗ trợ chuẩn OpenAI.</p>
+            <div class="supported-model-callout"><span>3 MODEL ĐƯỢC CHẤP NHẬN</span><div class="model-id-list"><code>GPT-5.6-sol</code><code>GPT-5.6-terra</code><code>GPT-5.6-luna</code></div></div>
+            <a class="landing-button large" href="{% url 'integration-guide' %}">Xem hướng dẫn từng bước <span>→</span></a>
+        </div>
+        <div class="integration-base-card">
+            <span>BASE URL</span>
+            <code>https://codex.anhlaptrinh.vn/v1</code>
+            <small>API key được tạo trong trang quản lý Token Codex.</small>
+        </div>
+    </section>
+
+    <section class="landing-final-cta">
+        <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Anh Lập Trình">
+        <p class="eyebrow light">TOKEN CODEX</p>
+        <h2>Sẵn sàng tiết kiệm 90% chi phí sử dụng AI?</h2>
+        <p>Đăng ký miễn phí. Bạn chỉ thanh toán khi đã xem kỹ chính sách và quyết định mua hạn mức.</p>
+        <div class="landing-cta-row centered">
+            {% if user.is_authenticated %}
+            <a class="landing-button light large" href="{% url 'dashboard' %}">Vào trang quản lý <span>→</span></a>
+            {% else %}
+            <a class="landing-button light large" href="{% url 'register' %}">Đăng ký tài khoản <span>→</span></a>
+            <a class="landing-button outline-light large" href="{% url 'login' %}">Đăng nhập</a>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="landing-disclaimer">
+        <strong>Lưu ý minh bạch:</strong>
+        <span>Hạn mức quy đổi được sử dụng trong hệ thống Token Codex, không phải số dư tiền mặt và không phải tài khoản được bán trực tiếp bởi nhà cung cấp chính hãng. Chi phí thực tế được tính theo model và số lượng token sử dụng.</span>
+    </section>
+</main>
+
+<footer class="landing-footer">
+    <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình">
+    <span>Token Codex · Giải pháp tối ưu chi phí AI</span>
+    <div><a href="{% url 'integration-guide' %}">Hướng dẫn tích hợp</a><a href="{% url 'login' %}">Đăng nhập</a><a href="{% url 'register' %}">Đăng ký</a></div>
+</footer>
+</body>
+</html>

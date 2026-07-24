@@ -1,0 +1,94 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Đăng ký tài khoản Token Codex của Anh Lập Trình để tạo API và quản lý chi phí sử dụng.">
+    <title>Đăng ký Token Codex | Anh Lập Trình</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260720-logo">
+</head>
+<body class="login-page register-page">
+<div class="login-shell register-shell">
+    <section class="login-brand register-brand">
+        <a class="auth-brand-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ">
+            <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình">
+        </a>
+        <div>
+            <p class="eyebrow light">TOKEN CODEX</p>
+            <h1>Bắt đầu sử dụng<br>AI tiết kiệm hơn</h1>
+            <p>Tạo tài khoản để chủ động quản lý API, hạn mức và toàn bộ chi phí sử dụng trên một giao diện rõ ràng.</p>
+        </div>
+        <div class="brand-features">
+            <span>✓ Tự tạo và quản lý API riêng</span>
+            <span>✓ Theo dõi request, token và chi phí</span>
+            <span>✓ Chủ động mua thêm hạn mức trực tuyến</span>
+        </div>
+        <p class="brand-operated">Dịch vụ được vận hành bởi Anh Lập Trình</p>
+    </section>
+
+    <main class="login-card register-card">
+        <a class="mobile-brand-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ">
+            <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình">
+        </a>
+        <div class="login-heading">
+            <p class="eyebrow">ĐĂNG KÝ</p>
+            <h2>Tạo tài khoản Token Codex</h2>
+            <p class="subtitle">Chỉ mất khoảng một phút để bắt đầu.</p>
+        </div>
+
+        <div class="register-steps" aria-label="Quy trình sử dụng">
+            <span>Đăng ký</span><i>→</i><span>Mua hạn mức</span><i>→</i><span>Tạo API</span><i>→</i><span>Sử dụng</span>
+        </div>
+
+        <form method="post" class="login-form" id="register-form">
+            {% csrf_token %}
+            {% for field in form %}
+            <label for="{{ field.id_for_label }}">
+                <span>{{ field.label }}</span>
+                {% if "password" in field.name %}
+                <div class="password-field">
+                    {{ field }}
+                    <button type="button" class="password-toggle" aria-label="Hiện mật khẩu" onclick="togglePassword(this)">Hiện</button>
+                </div>
+                {% else %}
+                {{ field }}
+                {% endif %}
+                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                {% for error in field.errors %}<em>{{ error }}</em>{% endfor %}
+            </label>
+            {% endfor %}
+            {% for error in form.non_field_errors %}<div class="error" role="alert">{{ error }}</div>{% endfor %}
+            <button class="login-submit" type="submit" id="register-submit">
+                <span class="submit-label">Đăng ký tài khoản</span><span class="submit-arrow">→</span>
+            </button>
+        </form>
+
+        <p class="register-privacy">Bằng việc đăng ký, bạn đồng ý sử dụng dịch vụ đúng mục đích và bảo mật thông tin tài khoản.</p>
+        <p class="login-help">Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập</a></p>
+        <nav class="auth-links" aria-label="Liên kết hỗ trợ">
+            <a href="{% url 'landing' %}">Trang chủ</a>
+            <a href="{% url 'landing' %}#bang-gia">Bảng giá</a>
+            <a href="{% url 'integration-guide' %}">Hướng dẫn tích hợp</a>
+        </nav>
+    </main>
+</div>
+<script>
+function togglePassword(button) {
+    const input = button.parentElement.querySelector("input");
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    button.textContent = showing ? "Hiện" : "Ẩn";
+    button.setAttribute("aria-label", showing ? "Hiện mật khẩu" : "Ẩn mật khẩu");
+}
+
+document.getElementById("register-form").addEventListener("submit", function () {
+    const button = document.getElementById("register-submit");
+    button.disabled = true;
+    button.classList.add("is-loading");
+    button.querySelector(".submit-label").textContent = "Đang tạo tài khoản...";
+    button.querySelector(".submit-arrow").textContent = "•";
+});
+</script>
+</body>
+</html>

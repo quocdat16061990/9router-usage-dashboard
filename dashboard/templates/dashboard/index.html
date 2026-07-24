@@ -1,0 +1,191 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chi phí API ALT</title>
+    <link rel="stylesheet" href="/static/css/app.css?v=20260723-key-reactivation">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="sidebar-logo sidebar-logo-image"><img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Anh Lập Trình"></span>
+        </div>
+        <nav class="sidebar-nav">
+            <a class="active" href="/">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+                Tổng quan chi phí
+            </a>
+            {% if request.user.is_superuser %}
+            <a href="{% url 'user-management' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Quản lý người dùng
+            </a>
+            {% else %}
+            <a href="{% url 'token-purchase' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3V6Zm2 2v2a3 3 0 0 0 3-2H5Zm14 0h-3a3 3 0 0 0 3 2V8ZM5 16h3a3 3 0 0 0-3-2v2Zm14 0v-2a3 3 0 0 0-3 2h3Zm-7-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
+                Mua Token Codex
+            </a>
+            {% endif %}
+            <a href="{% url 'integration-guide' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 17 3 12l5-5m8 0 5 5-5 5M14 4l-4 16"/></svg>
+                Hướng dẫn tích hợp
+            </a>
+        </nav>
+        <div class="sidebar-source">
+            <span class="status-dot"></span>
+            <div><strong>Nguồn dữ liệu ALT</strong><small>Cập nhật trực tiếp</small></div>
+        </div>
+    </aside>
+
+    <main class="dashboard-main">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">BÁO CÁO SỬ DỤNG API</p>
+                <h1>Chi phí ALT</h1>
+                <p class="subtitle">{{ access_label }}</p>
+            </div>
+            <div class="topbar-actions">
+                {% if not request.user.is_superuser %}
+                <div class="account-identity" title="Email tài khoản đang đăng nhập">
+                    <span class="account-avatar">{{ request.user.email|default:request.user.username|slice:':1'|upper }}</span>
+                    <div><small>Tài khoản đang đăng nhập</small><strong>{{ request.user.email|default:request.user.username }}</strong></div>
+                </div>
+                {% endif %}
+                <div class="source-badge"><span class="status-dot"></span><div><small>Dữ liệu gần nhất</small><strong>{% if latest_record_at %}{{ latest_record_at|date:'H:i · d/m/Y' }}{% else %}Chưa có dữ liệu{% endif %}</strong></div></div>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="icon-button" type="submit" title="Đăng xuất" aria-label="Đăng xuất">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5v3H3v4h7v3Zm9-14h-8v4h2V5h6v14h-6v-2h-2v4h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
+                    </button>
+                </form>
+            </div>
+        </header>
+        {% if payment_success_order %}
+        <section class="notice success">
+            Thanh toán thành công đơn <strong>{{ payment_success_order.invoice_code }}</strong>.
+            Đã cộng <strong>{{ payment_success_order.total_credit_usd|floatformat:0 }} USD</strong> hạn mức;
+            hạn mức hiện tại là <strong>{{ payment_success_order.credit_limit_after|floatformat:4 }} USD</strong>.
+        </section>
+        {% endif %}
+        {% if not request.user.is_superuser %}
+        <section class="commercial-grid">
+            <article class="summary-card"><span>Hạn mức</span><strong>${{ customer_account.credit_limit|floatformat:"4u" }}</strong></article>
+            <article class="summary-card"><span>Đã sử dụng</span><strong>${{ spent_total|floatformat:"4u" }}</strong></article>
+            <article class="summary-card"><span>Còn lại</span><strong>${{ remaining_credit|floatformat:"4u" }}</strong></article>
+        </section>
+        <section class="token-promo-card">
+            <div>
+                <p class="eyebrow">NẠP THÊM HẠN MỨC</p>
+                <h2>Mua Token Codex với ưu đãi ×10</h2>
+                <p>Thanh toán 1 USD nhận 10 USD hạn mức nhà cung cấp. Token Codex hiện chấp nhận ba model: <strong>GPT-5.6-sol</strong>, <strong>GPT-5.6-terra</strong> và <strong>GPT-5.6-luna</strong>.</p>
+            </div>
+            <div class="promo-actions"><a class="secondary-button" href="{% url 'integration-guide' %}">Hướng dẫn tích hợp</a><a class="primary-button" href="{% url 'token-purchase' %}">Mua Token Codex</a></div>
+        </section>
+        {% if new_api_key %}<section class="key-reveal"><strong>API key mới — chỉ hiển thị lần này</strong><code>{{ new_api_key }}</code><p>Hãy sao chép và lưu ở nơi an toàn.</p></section>{% endif %}
+        <section class="api-management-panel"><div><p class="eyebrow">API CỦA BẠN</p><h2>Tạo và thu hồi API</h2></div>{% if legacy_deleted_api_keys %}<div class="legacy-key-notice"><strong>API cũ đã bị xóa theo cơ chế trước đây</strong><p>Hạn mức của bạn đã sẵn sàng, nhưng API cũ không thể khôi phục. Hãy tạo API mới bên dưới và cập nhật key mới trong ứng dụng đang sử dụng.</p></div>{% endif %}<form method="post" action="{% url 'api-key-create' %}" class="inline-key-form">{% csrf_token %}{{ api_key_form.name }}<button type="submit">Tạo API</button></form><div class="managed-key-list">{% for key in managed_api_keys %}<div><span><strong>{{ key.api_name }}</strong><small>{{ key.key_prefix }}•••• · {% if key.is_active %}Đang hoạt động{% else %}{{ key.disabled_reason|default:'Đã khóa' }}{% endif %}</small></span>{% if key.is_active %}<form method="post" action="{% url 'api-key-delete' key.id %}">{% csrf_token %}<button type="submit">Thu hồi</button></form>{% endif %}</div>{% empty %}<p>Chưa có API tự tạo.</p>{% endfor %}</div></section>
+        {% endif %}
+
+        <section class="filter-panel">
+            <div class="filter-heading">
+                <div><span class="section-icon"><svg viewBox="0 0 24 24"><path d="M7 2v3M17 2v3M3 9h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg></span><div><strong>Khoảng thời gian</strong><small>Đang xem: {{ range_label }}</small></div></div>
+                <div class="quick-filters">
+                    <a class="filter-button {% if period == 'today' %}active{% endif %}" href="?period=today">Hôm nay</a>
+                    <a class="filter-button {% if period == 'month' %}active{% endif %}" href="?period=month">Tháng này</a>
+                    <a class="filter-button {% if period == 'all' %}active{% endif %}" href="?period=all">Toàn bộ</a>
+                </div>
+            </div>
+            <form class="date-filter" method="get">
+                <input type="hidden" name="period" value="custom">
+                <label><span>Từ ngày</span><input type="date" name="start" value="{{ start_date|date:'Y-m-d' }}" required></label>
+                <span class="date-arrow">→</span>
+                <label><span>Đến ngày</span><input type="date" name="end" value="{{ end_date|date:'Y-m-d' }}" required></label>
+                <button type="submit">Áp dụng bộ lọc</button>
+            </form>
+        </section>
+
+        <section class="metric-grid">
+            <article class="metric-card primary">
+                <div class="metric-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
+                <div><span>Tổng chi phí</span><strong>${{ total_cost|floatformat:6 }}</strong><small>{{ range_label }}</small></div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-icon blue"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+                <div><span>Tổng request</span><strong>{{ total_requests }}</strong><small>Lượt gọi API</small></div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-icon violet"><svg viewBox="0 0 24 24"><path d="M4 7h16M7 4v6M17 4v6M5 12h6v7H5zM14 12h5v3h-5zM14 17h5v2h-5z"/></svg></div>
+                <div><span>API đang hiển thị</span><strong>{{ api_count }}</strong><small>API key có phát sinh</small></div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-icon green"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2"/></svg></div>
+                <div><span>Chi phí trung bình</span><strong>${{ average_cost|floatformat:6 }}</strong><small>Mỗi request</small></div>
+            </article>
+        </section>
+
+        <section class="usage-card">
+            <div class="card-heading">
+                <div><h2>Chi phí theo API</h2><p>{{ access_label }} · Sắp xếp theo chi phí từ cao xuống thấp.</p></div>
+                <span class="result-count">{{ api_count }} API</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tên API</th><th>Số request</th><th>Chi phí</th></tr></thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td><div class="api-cell"><span class="api-avatar">{{ row.api_name|slice:':1'|upper }}</span><div><strong>{{ row.api_name }}</strong><span><i style="width: {{ row.share|stringformat:'s' }}%"></i></span><small>{{ row.share|floatformat:1 }}% tổng chi phí</small></div></div></td>
+                            <td><span class="request-pill">{{ row.requests }}</span></td>
+                            <td><strong class="cost-value">${{ row.cost|floatformat:6 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="empty" colspan="3"><span class="empty-icon">⌁</span><strong>Chưa có dữ liệu trong khoảng này</strong><p>Dữ liệu gần nhất là {% if latest_record_at %}ngày {{ latest_record_at|date:'d/m/Y' }}{% else %}chưa xác định{% endif %}. Hãy chọn “Toàn bộ” hoặc một dải ngày khác.</p><a href="?period=all">Xem toàn bộ dữ liệu</a></td></tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if rows %}<tfoot><tr><th>Tổng cộng</th><th>{{ total_requests }}</th><th>${{ total_cost|floatformat:6 }}</th></tr></tfoot>{% endif %}
+                </table>
+            </div>
+        </section>
+        <section class="usage-card activity-card">
+            <div class="card-heading activity-heading">
+                <div>
+                    <h2>Nhật ký request chi tiết</h2>
+                    <p>Mỗi dòng là một request thực tế trong {{ activity_range_label }}, hiển thị theo giờ Việt Nam để bạn tự đối soát.</p>
+                </div>
+                <span class="result-count">{{ activity_total }} request</span>
+            </div>
+            <div class="table-wrap activity-table-wrap">
+                <table class="activity-table">
+                    <thead><tr><th>Thời gian (GMT+7)</th><th>Request</th><th>API / Model</th><th>Endpoint</th><th>Trạng thái</th><th>Token vào / ra</th><th>Chi phí</th></tr></thead>
+                    <tbody>
+                        {% for row in activity_rows %}
+                        <tr>
+                            <td><strong>{{ row.occurred_at|date:'H:i:s' }}</strong><small>{{ row.occurred_at|date:'d/m/Y' }}</small></td>
+                            <td><code>#{{ row.request_id }}</code></td>
+                            <td><strong>{{ row.api_name }}</strong><small>{{ row.provider }} · {{ row.model }}</small></td>
+                            <td><code>{{ row.endpoint }}</code></td>
+                            <td><span class="request-status {% if row.is_success %}success{% else %}failed{% endif %}">{% if row.is_success %}Thành công{% else %}{{ row.status|upper }}{% endif %}</span></td>
+                            <td><strong>{{ row.prompt_tokens }} / {{ row.completion_tokens }}</strong><small>Tổng {{ row.total_tokens }}</small></td>
+                            <td><strong class="cost-value">${{ row.cost|floatformat:6 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td class="empty" colspan="7"><strong>Không có request trong khoảng thời gian này.</strong></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if activity_total_pages > 1 %}
+            <nav class="activity-pagination" aria-label="Phân trang nhật ký request">
+                {% if activity_has_previous %}<a href="?period={{ period }}{% if start_date %}&start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}{% endif %}&activity_page={{ activity_previous_page }}">← Trang trước</a>{% else %}<span></span>{% endif %}
+                <strong>Trang {{ activity_page }} / {{ activity_total_pages }}</strong>
+                {% if activity_has_next %}<a href="?period={{ period }}{% if start_date %}&start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}{% endif %}&activity_page={{ activity_next_page }}">Trang sau →</a>{% else %}<span></span>{% endif %}
+            </nav>
+            {% endif %}
+        </section>
+        <footer class="dashboard-footer"><span>Dữ liệu ALT được cập nhật trực tiếp</span><span>Asia/Ho_Chi_Minh · USD</span></footer>
+    </main>
+</div>
+</body>
+</html>

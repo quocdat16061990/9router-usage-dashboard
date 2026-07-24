@@ -1,0 +1,165 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quản lý người dùng - Chi phí API ALT</title>
+    <link rel="stylesheet" href="/static/css/app.css?v=20260722-member-report-search">
+</head>
+<body class="management-page">
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="sidebar-logo sidebar-logo-image"><img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Anh Lập Trình"></span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z"/></svg>
+                Tổng quan chi phí
+            </a>
+            <a class="active" href="{% url 'user-management' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Quản lý người dùng
+            </a>
+        </nav>
+        <div class="sidebar-source">
+            <span class="status-dot"></span>
+            <div><strong>{{ active_api_count }} API hoạt động</strong><small>Sẵn sàng phân quyền</small></div>
+        </div>
+    </aside>
+
+    <main class="dashboard-main">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">QUẢN TRỊ TÀI KHOẢN</p>
+                <h1>Người dùng API</h1>
+                <p class="subtitle">Tạo tài khoản và chọn chính xác API mà mỗi người được xem.</p>
+            </div>
+            <a class="secondary-button" href="/">← Về báo cáo</a>
+        </header>
+
+        {% for message in messages %}<div class="notice success">{{ message }}</div>{% endfor %}
+
+        <div class="management-layout">
+            <section class="management-card form-card">
+                {% if edit_user %}
+                <div class="management-heading"><div><p class="eyebrow">CHỈNH SỬA</p><h2>{{ edit_user.first_name|default:edit_user.username }}</h2></div><a href="{% url 'user-management' %}">Hủy</a></div>
+                <form method="post" class="customer-form">
+                    {% csrf_token %}<input type="hidden" name="action" value="update"><input type="hidden" name="user_id" value="{{ edit_user.id }}">
+                    {% for error in update_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    {% for field in update_form %}<label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}
+                    <button class="primary-button" type="submit">Lưu thay đổi</button>
+                </form>
+                {% else %}
+                <div class="management-heading"><div><p class="eyebrow">TẠO MỚI</p><h2>Thêm người dùng</h2></div></div>
+                <form method="post" class="customer-form">
+                    {% csrf_token %}<input type="hidden" name="action" value="create">
+                    {% for error in create_form.non_field_errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    {% for field in create_form %}<label><span>{{ field.label }}</span>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<em>{{ error }}</em>{% endfor %}</label>{% endfor %}
+                    <button class="primary-button" type="submit">Tạo tài khoản</button>
+                </form>
+                {% endif %}
+            </section>
+
+            <section class="management-card user-list-card">
+                <div class="management-heading user-list-heading">
+                    <div>
+                        <p class="eyebrow">DANH SÁCH</p>
+                        <h2>{{ users|length }} người dùng</h2>
+                        {% if users %}<p class="user-list-hint"><span aria-hidden="true">↕</span> Cuộn để xem toàn bộ danh sách</p>{% endif %}
+                    </div>
+                    <form method="get" class="user-sort-form">
+                        <input type="hidden" name="cost_period" value="{{ cost_report.period }}">
+                        {% if member_search %}<input type="hidden" name="member_search" value="{{ member_search }}">{% endif %}
+                        {% if cost_report.period == 'custom' %}
+                        <input type="hidden" name="cost_start" value="{{ cost_report.start_date|date:'Y-m-d' }}">
+                        <input type="hidden" name="cost_end" value="{{ cost_report.end_date|date:'Y-m-d' }}">
+                        {% endif %}
+                        <label for="user-sort">Sắp xếp</label>
+                        <select id="user-sort" name="sort" onchange="this.form.submit()">
+                            {% for value, label in sort_options.items %}<option value="{{ value }}" {% if selected_sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="user-list-scroll" role="region" aria-label="Danh sách người dùng" tabindex="0">
+                    <div class="user-list">
+                        {% for user in users %}
+                        <article class="user-row">
+                            <div class="user-avatar">{{ user.first_name|default:user.username|slice:':1'|upper }}</div>
+                            <div class="user-info"><strong>{{ user.first_name|default:'Chưa đặt tên' }}</strong><span>{{ user.email|default:user.username }}</span><small class="registered-at">Đăng ký {{ user.date_joined|date:'d/m/Y H:i' }}</small><div class="api-tags">{% for access in user.api_accesses.all %}<small>{{ access.api_name }}</small>{% empty %}<small class="muted-tag">Chưa gán API</small>{% endfor %}</div></div>
+                            <div class="user-actions">
+                                <span class="status-pill {% if not user.is_active %}inactive{% endif %}">{% if user.is_active %}Đang hoạt động{% else %}Đã khóa{% endif %}</span>
+                                <a href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a>
+                                <form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">
+                                    {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <button class="delete-user-button" type="submit">Xóa user</button>
+                                </form>
+                            </div>
+                        </article>
+                        {% empty %}<div class="empty-user-list"><strong>Chưa có người dùng</strong><p>Tạo tài khoản đầu tiên bằng biểu mẫu bên trái.</p></div>{% endfor %}
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <section class="member-cost-report">
+            <div class="member-report-header">
+                <div><p class="eyebrow">BÁO CÁO CHI PHÍ</p><h2>Chi phí theo thành viên</h2><p>Đang xem: {{ cost_report.range_label }}</p></div>
+                <div class="member-total"><span>{% if member_search %}Tổng chi phí kết quả{% else %}Tổng chi phí thành viên{% endif %}</span><strong>${{ member_total_cost|floatformat:"6u" }}</strong></div>
+            </div>
+            <div class="member-report-filter">
+                <div class="quick-filters">
+                    <a class="filter-button {% if cost_report.period == 'today' %}active{% endif %}" href="?cost_period=today&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Hôm nay</a>
+                    <a class="filter-button {% if cost_report.period == 'month' %}active{% endif %}" href="?cost_period=month&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Tháng này</a>
+                    <a class="filter-button {% if cost_report.period == 'all' %}active{% endif %}" href="?cost_period=all&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Toàn thời gian</a>
+                </div>
+                <form class="date-filter member-date-filter" method="get">
+                    <input type="hidden" name="cost_period" value="custom">
+                    <input type="hidden" name="sort" value="{{ selected_sort }}">
+                    {% if member_search %}<input type="hidden" name="member_search" value="{{ member_search }}">{% endif %}
+                    <label><span>Từ ngày</span><input type="date" name="cost_start" value="{{ cost_report.start_date|date:'Y-m-d' }}" required></label>
+                    <span class="date-arrow">→</span>
+                    <label><span>Đến ngày</span><input type="date" name="cost_end" value="{{ cost_report.end_date|date:'Y-m-d' }}" required></label>
+                    <button type="submit">Xem báo cáo</button>
+                </form>
+            </div>
+            <div class="member-search-bar">
+                <form method="get" class="member-search-form" role="search">
+                    <input type="hidden" name="cost_period" value="{{ cost_report.period }}">
+                    <input type="hidden" name="sort" value="{{ selected_sort }}">
+                    {% if cost_report.period == 'custom' %}
+                    <input type="hidden" name="cost_start" value="{{ cost_report.start_date|date:'Y-m-d' }}">
+                    <input type="hidden" name="cost_end" value="{{ cost_report.end_date|date:'Y-m-d' }}">
+                    {% endif %}
+                    <label for="member-search"><span aria-hidden="true">⌕</span><input id="member-search" type="search" name="member_search" value="{{ member_search }}" placeholder="Tìm theo tên hoặc email..." autocomplete="off"></label>
+                    <button type="submit">Tìm kiếm</button>
+                    {% if member_search %}<a href="?cost_period={{ cost_report.period }}&sort={{ selected_sort }}{% if cost_report.period == 'custom' %}&cost_start={{ cost_report.start_date|date:'Y-m-d' }}&cost_end={{ cost_report.end_date|date:'Y-m-d' }}{% endif %}">Xóa tìm kiếm</a>{% endif %}
+                </form>
+                <div class="member-search-result"><strong>{{ member_users|length }}</strong><span>{% if member_search %}kết quả phù hợp{% else %}thành viên trong báo cáo{% endif %}</span><small>Cuộn để xem toàn bộ dữ liệu</small></div>
+            </div>
+            <div class="table-wrap member-cost-scroll" role="region" aria-label="Bảng chi phí theo thành viên" tabindex="0">
+                <table class="member-cost-table">
+                    <thead><tr><th>Thành viên</th><th>API được cấp</th><th>Hạn mức</th><th>Đã sử dụng</th><th>Còn lại</th><th>Tỷ lệ dùng</th><th>Trạng thái</th><th>Chi phí kỳ chọn</th><th>Thao tác</th></tr></thead>
+                    <tbody>
+                        {% for user in member_users %}
+                        <tr>
+                            <td><div class="api-cell"><div class="user-avatar compact">{{ user.first_name|default:user.username|slice:':1'|upper }}</div><div><strong>{{ user.first_name|default:'Chưa đặt tên' }}</strong><small>{{ user.email|default:user.username }}</small><small>Đăng ký {{ user.date_joined|date:'d/m/Y H:i' }}</small></div></div></td>
+                            <td><div class="api-tags report-tags">{% for access in user.api_accesses.all %}<small>{{ access.api_name }}</small>{% empty %}<small class="muted-tag">Chưa gán API</small>{% endfor %}</div></td>
+                            <td><strong class="credit-value">${{ user.credit_limit|floatformat:"4u" }}</strong></td>
+                            <td><strong class="spent-value">${{ user.spent_total|floatformat:"4u" }}</strong></td>
+                            <td>{% if user.over_limit > 0 %}<strong class="remaining-value over-limit">Vượt ${{ user.over_limit|floatformat:"4u" }}</strong>{% else %}<strong class="remaining-value">${{ user.remaining_credit|floatformat:"4u" }}</strong>{% endif %}</td>
+                            <td><div class="usage-progress"><div class="usage-progress-track"><span class="{{ user.usage_level }}" style="width: {{ user.usage_percent|floatformat:'0u' }}%"></span></div><small>{{ user.usage_percent|floatformat:"1u" }}%</small></div></td>
+                            <td><span class="status-pill {% if not user.is_active %}inactive{% endif %}">{% if user.is_active %}Đang hoạt động{% else %}Đã khóa{% endif %}</span></td>
+                            <td><strong class="member-cost-value">${{ user.filtered_usage_cost|floatformat:"6u" }}</strong></td>
+                            <td><div class="table-actions"><a class="table-edit-link" href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a><form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}"><button class="table-delete-button" type="submit">Xóa</button></form></div></td>
+                        </tr>
+                        {% empty %}<tr><td colspan="9" class="empty">{% if member_search %}Không tìm thấy thành viên theo tên hoặc email “{{ member_search }}”.{% else %}Chưa có thành viên để báo cáo.{% endif %}</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

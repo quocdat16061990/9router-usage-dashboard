@@ -1,0 +1,69 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đăng nhập Token Codex | Anh Lập Trình</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260720-logo">
+</head>
+<body class="login-page">
+<div class="login-shell">
+    <section class="login-brand">
+        <a class="auth-brand-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ"><img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình"></a>
+        <div>
+            <p class="eyebrow light">ANH LẬP TRÌNH</p>
+            <h1>Quản lý chi phí<br>API ALT</h1>
+            <p>Theo dõi số request và chi phí theo từng API một cách rõ ràng, nhanh chóng.</p>
+        </div>
+        <div class="brand-features">
+            <span>✓ Báo cáo theo ngày và tháng</span>
+            <span>✓ Dữ liệu cập nhật trực tiếp</span>
+            <span>✓ Bảo vệ bằng đăng nhập riêng</span>
+        </div>
+    </section>
+    <main class="login-card">
+        <div class="login-heading">
+            <a class="mobile-brand-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ"><img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình"></a>
+            <p class="eyebrow">KHU VỰC QUẢN TRỊ</p>
+            <h2>Chào mừng bạn trở lại</h2>
+            <p class="subtitle">Đăng nhập để xem báo cáo chi phí API.</p>
+        </div>
+        {% if form.errors %}
+        <div class="error" role="alert">
+            <strong>Đăng nhập chưa thành công</strong>
+            <span>Vui lòng kiểm tra lại email và mật khẩu.</span>
+        </div>
+        {% endif %}
+        <form method="post" class="login-form">
+            {% csrf_token %}
+            <label for="{{ form.username.id_for_label }}">
+                <span>{{ form.username.label }}</span>
+                {{ form.username }}
+            </label>
+            <label for="{{ form.password.id_for_label }}">
+                <span>{{ form.password.label }}</span>
+                <div class="password-field">
+                    {{ form.password }}
+                    <button type="button" class="password-toggle" aria-label="Hiện mật khẩu" onclick="togglePassword(this)">Hiện</button>
+                </div>
+            </label>
+            <button class="login-submit" type="submit">Đăng nhập an toàn <span>→</span></button>
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        </form>
+        <p class="login-help"><a href="{% url 'password_reset' %}">Quên mật khẩu?</a></p>
+        <p class="login-help">Chưa có tài khoản? <a href="{% url 'register' %}">Đăng ký ngay</a></p>
+        <p class="login-help"><a href="{% url 'landing' %}">← Xem lại giới thiệu và báo giá</a></p>
+    </main>
+</div>
+<script>
+function togglePassword(button) {
+    const input = button.parentElement.querySelector("input");
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    button.textContent = showing ? "Hiện" : "Ẩn";
+    button.setAttribute("aria-label", showing ? "Hiện mật khẩu" : "Ẩn mật khẩu");
+}
+</script>
+</body>
+</html>

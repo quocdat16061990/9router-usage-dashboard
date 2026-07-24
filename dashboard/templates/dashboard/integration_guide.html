@@ -1,0 +1,196 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Hướng dẫn tích hợp Token Codex với OpenClaw, Codex trong Antigravity, Hermes Agent, Python và Node.js.">
+    <title>Hướng dẫn tích hợp Token Codex</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260722-models">
+</head>
+<body class="guide-page">
+<header class="landing-nav guide-nav">
+    <a class="landing-logo" href="{% url 'landing' %}" aria-label="Anh Lập Trình - Trang chủ">
+        <img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình">
+    </a>
+    <nav aria-label="Điều hướng hướng dẫn">
+        <a href="#bat-dau">Bắt đầu</a>
+        <a href="#cong-cu">Công cụ</a>
+        <a href="#kiem-tra">Kiểm tra</a>
+        <a href="#xu-ly-loi">Xử lý lỗi</a>
+    </nav>
+    <div class="landing-nav-actions">
+        {% if user.is_authenticated %}
+        <a class="landing-button small" href="{% url 'dashboard' %}">Vào trang quản lý</a>
+        {% else %}
+        <a class="landing-login" href="{% url 'login' %}">Đăng nhập</a>
+        <a class="landing-button small" href="{% url 'register' %}">Đăng ký</a>
+        {% endif %}
+    </div>
+</header>
+
+<main>
+    <section class="guide-hero">
+        <div>
+            <p class="eyebrow">HƯỚNG DẪN TÍCH HỢP</p>
+            <h1>Kết nối Token Codex vào dự án của bạn</h1>
+            <p>Dùng API tương thích OpenAI cho OpenClaw, Codex trong Antigravity, Hermes Agent và mã nguồn của riêng bạn.</p>
+            <div class="guide-model-badge"><span>3 MODEL ĐƯỢC CHẤP NHẬN</span><div class="model-id-list"><code>GPT-5.6-sol</code><code>GPT-5.6-terra</code><code>GPT-5.6-luna</code></div><small>Dùng đúng ID, bao gồm chữ hoa và chữ thường.</small></div>
+        </div>
+        <div class="guide-endpoint-card">
+            <div><span>Base URL</span><button class="copy-button" type="button" data-copy="https://codex.anhlaptrinh.vn/v1">Sao chép</button></div>
+            <code>https://codex.anhlaptrinh.vn/v1</code>
+            <small>Không thêm tiếp <code>/v1</code> lần thứ hai trong cấu hình.</small>
+        </div>
+    </section>
+
+    <section class="guide-section" id="bat-dau">
+        <div class="guide-section-heading"><p class="eyebrow">BẮT ĐẦU AN TOÀN</p><h2>Chuẩn bị trong 4 bước</h2></div>
+        <div class="guide-step-grid">
+            <article><strong>1</strong><h3>Tạo tài khoản</h3><p>Đăng ký hoặc đăng nhập Token Codex.</p></article>
+            <article><strong>2</strong><h3>Nạp hạn mức</h3><p>Chọn gói phù hợp và hoàn tất thanh toán.</p></article>
+            <article><strong>3</strong><h3>Tạo API key</h3><p>Tạo khóa trong trang quản lý và sao chép ngay khi khóa xuất hiện.</p></article>
+            <article><strong>4</strong><h3>Lưu vào biến môi trường</h3><p>Không ghi khóa thật vào source code, tài liệu hoặc ảnh chụp màn hình.</p></article>
+        </div>
+        <div class="guide-note important"><strong>Model được chấp nhận:</strong> <code>GPT-5.6-sol</code>, <code>GPT-5.6-terra</code> và <code>GPT-5.6-luna</code>. Các ví dụ dùng SOL làm mặc định; bạn có thể thay bằng một trong hai ID còn lại. Chỉ thay <code>YOUR_TOKEN_CODEX_API_KEY</code> bằng khóa của bạn.</div>
+    </section>
+
+    <section class="guide-section guide-tools-section" id="cong-cu">
+        <div class="guide-section-heading"><p class="eyebrow">CẤU HÌNH MẪU</p><h2>Chọn công cụ đang sử dụng</h2><p>Các ví dụ không chứa API key thật và có thể sao chép để chỉnh sửa.</p></div>
+        <div class="guide-tabs" role="tablist" aria-label="Công cụ tích hợp">
+            <button class="guide-tab active" type="button" data-tab="openclaw">OpenClaw</button>
+            <button class="guide-tab" type="button" data-tab="codex">Antigravity / Codex</button>
+            <button class="guide-tab" type="button" data-tab="hermes">Hermes Agent</button>
+            <button class="guide-tab" type="button" data-tab="python">Python</button>
+            <button class="guide-tab" type="button" data-tab="node">Node.js</button>
+        </div>
+
+        <article class="guide-panel active" data-panel="openclaw">
+            <div class="guide-panel-copy"><h3>OpenClaw</h3><p>Thêm custom provider vào <code>openclaw.json</code>, sau đó chọn model thuộc provider <code>token-codex</code>.</p><ul><li>Giữ key trong biến môi trường <code>TOKEN_CODEX_API_KEY</code>.</li><li>Khởi động lại OpenClaw sau khi đổi cấu hình.</li></ul></div>
+            <div class="code-card"><button class="copy-button" type="button">Sao chép</button><pre><code>{
+  "models": {
+    "providers": {
+      "token-codex": {
+        "baseUrl": "https://codex.anhlaptrinh.vn/v1",
+        "apiKey": "${TOKEN_CODEX_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {"id": "GPT-5.6-sol", "name": "GPT-5.6-sol"},
+          {"id": "GPT-5.6-terra", "name": "GPT-5.6-terra"},
+          {"id": "GPT-5.6-luna", "name": "GPT-5.6-luna"}
+        ]
+      }
+    }
+  }
+}</code></pre></div>
+        </article>
+
+        <article class="guide-panel" data-panel="codex">
+            <div class="guide-panel-copy"><h3>Codex trong Antigravity</h3><p>Cấu hình Codex CLI/extension trong file người dùng <code>%USERPROFILE%\.codex\config.toml</code>.</p><ul><li><code>env_key</code> là tên biến môi trường, không phải API key thật.</li><li>Có thể đổi dòng <code>model</code> sang <code>GPT-5.6-terra</code> hoặc <code>GPT-5.6-luna</code>.</li><li>Restart Antigravity hoặc Codex sau khi lưu.</li></ul></div>
+            <div class="code-stack">
+                <div class="code-card"><span class="code-label">config.toml</span><button class="copy-button" type="button">Sao chép</button><pre><code>model_provider = "token_codex"
+model = "GPT-5.6-sol"
+
+[model_providers.token_codex]
+name = "Token Codex"
+base_url = "https://codex.anhlaptrinh.vn/v1"
+env_key = "TOKEN_CODEX_API_KEY"
+wire_api = "responses"</code></pre></div>
+                <div class="code-card"><span class="code-label">PowerShell</span><button class="copy-button" type="button">Sao chép</button><pre><code>[Environment]::SetEnvironmentVariable(
+  "TOKEN_CODEX_API_KEY",
+  "YOUR_TOKEN_CODEX_API_KEY",
+  "User"
+)</code></pre></div>
+            </div>
+        </article>
+
+        <article class="guide-panel" data-panel="hermes">
+            <div class="guide-panel-copy"><h3>Hermes Agent</h3><p>Dùng endpoint tương thích OpenAI và chọn một trong ba model được chấp nhận.</p><ul><li>Ví dụ mặc định dùng <code>GPT-5.6-sol</code>.</li><li>Có thể đổi sang <code>GPT-5.6-terra</code> hoặc <code>GPT-5.6-luna</code>.</li><li>Không commit file chứa biến môi trường.</li></ul></div>
+            <div class="code-card"><button class="copy-button" type="button">Sao chép</button><pre><code>export OPENAI_API_KEY="YOUR_TOKEN_CODEX_API_KEY"
+export OPENAI_BASE_URL="https://codex.anhlaptrinh.vn/v1"
+export OPENAI_MODEL="GPT-5.6-sol"</code></pre></div>
+        </article>
+
+        <article class="guide-panel" data-panel="python">
+            <div class="guide-panel-copy"><h3>Python OpenAI SDK</h3><p>Đọc API key từ biến môi trường và truyền Base URL khi khởi tạo client. Thay giá trị <code>model</code> bằng một trong ba ID được chấp nhận khi cần.</p></div>
+            <div class="code-card"><button class="copy-button" type="button">Sao chép</button><pre><code>import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["TOKEN_CODEX_API_KEY"],
+    base_url="https://codex.anhlaptrinh.vn/v1",
+)
+
+response = client.chat.completions.create(
+    model="GPT-5.6-sol",
+    messages=[{"role": "user", "content": "Xin chào"}],
+)
+print(response.choices[0].message.content)</code></pre></div>
+        </article>
+
+        <article class="guide-panel" data-panel="node">
+            <div class="guide-panel-copy"><h3>Node.js OpenAI SDK</h3><p>Dùng thuộc tính <code>baseURL</code> của OpenAI client, giữ key trong environment và chọn một trong ba model được chấp nhận.</p></div>
+            <div class="code-card"><button class="copy-button" type="button">Sao chép</button><pre><code>import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.TOKEN_CODEX_API_KEY,
+  baseURL: "https://codex.anhlaptrinh.vn/v1",
+});
+
+const response = await client.chat.completions.create({
+  model: "GPT-5.6-sol",
+  messages: [{ role: "user", content: "Xin chào" }],
+});
+console.log(response.choices[0].message.content);</code></pre></div>
+        </article>
+    </section>
+
+    <section class="guide-section" id="kiem-tra">
+        <div class="guide-section-heading"><p class="eyebrow">KIỂM TRA KẾT NỐI</p><h2>Xác nhận danh sách model trước khi chạy</h2><p>Lệnh thành công trả danh sách có <code>GPT-5.6-sol</code>, <code>GPT-5.6-terra</code> và <code>GPT-5.6-luna</code>.</p></div>
+        <div class="code-card wide"><button class="copy-button" type="button">Sao chép</button><pre><code>curl https://codex.anhlaptrinh.vn/v1/models \
+  -H "Authorization: Bearer YOUR_TOKEN_CODEX_API_KEY"</code></pre></div>
+    </section>
+
+    <section class="guide-section troubleshooting-section" id="xu-ly-loi">
+        <div class="guide-section-heading"><p class="eyebrow">XỬ LÝ LỖI</p><h2>Các lỗi thường gặp</h2></div>
+        <div class="troubleshooting-grid">
+            <article><code>401 Unauthorized</code><p>API key thiếu, sai hoặc đã bị thu hồi. Tạo lại key nếu cần.</p></article>
+            <article><code>404 Not Found</code><p>Kiểm tra Base URL phải kết thúc đúng một lần bằng <code>/v1</code>.</p></article>
+            <article><code>Model not found</code><p>Dùng đúng một trong ba ID: <code>GPT-5.6-sol</code>, <code>GPT-5.6-terra</code> hoặc <code>GPT-5.6-luna</code>; chú ý chữ hoa và chữ thường.</p></article>
+            <article><code>Hết hạn mức</code><p>Đăng nhập dashboard để kiểm tra chi phí và mua thêm Token Codex.</p></article>
+        </div>
+    </section>
+
+    <section class="landing-final-cta guide-cta">
+        <p class="eyebrow light">SẴN SÀNG KẾT NỐI</p>
+        <h2>Tạo API riêng và bắt đầu sử dụng</h2>
+        <div class="landing-cta-row centered">
+            {% if user.is_authenticated %}<a class="landing-button light large" href="{% url 'dashboard' %}">Vào trang quản lý <span>→</span></a>{% else %}<a class="landing-button light large" href="{% url 'register' %}">Đăng ký tài khoản <span>→</span></a><a class="landing-button outline-light large" href="{% url 'login' %}">Đăng nhập</a>{% endif %}
+        </div>
+    </section>
+</main>
+
+<footer class="landing-footer"><img src="{% static 'img/logo-anh-lap-trinh.png' %}" alt="Logo Anh Lập Trình"><span>Token Codex · OpenAI-compatible API</span><div><a href="{% url 'landing' %}">Trang chủ</a><a href="{% url 'login' %}">Đăng nhập</a></div></footer>
+
+<script>
+document.querySelectorAll('.guide-tab').forEach((button) => {
+    button.addEventListener('click', () => {
+        document.querySelectorAll('.guide-tab').forEach((tab) => tab.classList.remove('active'));
+        document.querySelectorAll('.guide-panel').forEach((panel) => panel.classList.remove('active'));
+        button.classList.add('active');
+        document.querySelector(`[data-panel="${button.dataset.tab}"]`).classList.add('active');
+    });
+});
+
+document.querySelectorAll('.copy-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+        const text = button.dataset.copy || button.closest('.code-card').querySelector('code').textContent;
+        await navigator.clipboard.writeText(text);
+        const original = button.textContent;
+        button.textContent = 'Đã sao chép';
+        setTimeout(() => { button.textContent = original; }, 1600);
+    });
+});
+</script>
+</body>
+</html>

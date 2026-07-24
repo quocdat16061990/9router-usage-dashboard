@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+db.sqlite3
+staticfiles/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+credentials.json
+client_secret*.json
+*token*
+*secret*
+*credential*
