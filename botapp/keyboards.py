@@ -37,3 +37,15 @@ def restart_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Bắt đầu lại", callback_data="restart_flow")],
     ])
+
+
+def back_to_main_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Quay lại Menu chính", callback_data="main_menu")],
+    ])
+
+
+def back_to_admin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Quay lại Admin Panel", callback_data="admin_panel")],
+    ])

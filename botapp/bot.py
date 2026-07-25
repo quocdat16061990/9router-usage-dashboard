@@ -16,7 +16,7 @@ from telegram.ext import (
     filters,
 )
 
-from .keyboards import main_menu_keyboard, restart_keyboard, admin_menu_keyboard
+from .keyboards import main_menu_keyboard, restart_keyboard, admin_menu_keyboard, back_to_main_keyboard, back_to_admin_keyboard
 from .services import (
     apply_free_promo_to_user,
     create_api_key_for_user,
@@ -283,7 +283,30 @@ async def restart_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
     context.user_data.clear()
-    await query.edit_message_text("Vui lòng nhập email của bạn để liên kết Telegram.", reply_markup=restart_keyboard())
+    
+    account = await _find_account_by_chat_id(update.effective_chat.id)
+    if account:
+        is_admin = account.user.is_superuser or account.user.is_staff
+        await query.edit_message_text(
+            f"Xin chào {escape_markdown(account.user.first_name) or 'bạn'}!\n\nEmail: `{account.user.email}`",
+            reply_markup=main_menu_keyboard(is_admin),
+            parse_mode="Markdown",
+        )
+        return ConversationHandler.END
+
+    await query.edit_message_text(
+        "Chào mừng bạn đến với hệ thống 9Router.\n\n"
+        "Vui lòng nhập email của bạn đã đăng ký trên hệ thống để liên kết Telegram.\n\n"
+        "🤖 *Các câu lệnh hỗ trợ:*\n"
+        "• `/me` - Xem thông tin số dư & hạn mức\n"
+        "• `/keys` - Xem danh sách & thu hồi API Keys\n"
+        "• `/createkey` - Tạo API Key mới nhanh\n"
+        "• `/promo` - Nhập mã khuyến mãi\n"
+        "• `/unlink` - Hủy liên kết Telegram\n"
+        "• `/help` - Xem hướng dẫn sử dụng",
+        reply_markup=restart_keyboard(),
+        parse_mode="Markdown",
+    )
     return ASK_EMAIL
 
 
@@ -346,9 +369,9 @@ async def start_promo_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         
     msg_text = "🎁 Vui lòng nhập mã khuyến mãi (Mã 0đ / Free credit) của bạn:"
     if query:
-        await query.edit_message_text(msg_text, reply_markup=restart_keyboard())
+        await query.edit_message_text(msg_text, reply_markup=back_to_main_keyboard())
     else:
-        await update.message.reply_text(msg_text, reply_markup=restart_keyboard())
+        await update.message.reply_text(msg_text, reply_markup=back_to_main_keyboard())
     return ASK_PROMO
 
 
@@ -360,25 +383,30 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return ConversationHandler.END
         
     success, message = await sync_to_async(apply_free_promo_to_user)(account.user, promo_text)
+    is_admin = account.user.is_superuser or account.user.is_staff
     
     if success:
         await update.message.reply_text(
             f"✅ {message}",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=main_menu_keyboard(is_admin),
         )
         return ConversationHandler.END
     else:
         await update.message.reply_text(
             f"❌ {message}\n\nVui lòng thử lại hoặc gõ /cancel để hủy.",
-            reply_markup=restart_keyboard(),
+            reply_markup=back_to_main_keyboard(),
         )
         return ASK_PROMO
 
 
 async def cancel_promo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    is_admin = False
+    account = await _find_account_by_chat_id(update.effective_chat.id)
+    if account:
+        is_admin = account.user.is_superuser or account.user.is_staff
     await update.message.reply_text(
         "Đã hủy nhập mã khuyến mãi.",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(is_admin),
     )
     return ConversationHandler.END
 
@@ -397,9 +425,9 @@ async def start_create_key_flow(update: Update, context: ContextTypes.DEFAULT_TY
         "Vui lòng nhập **Tên gợi nhớ** cho API Key mới của bạn (chỉ gồm chữ, số, tối đa 30 ký tự):"
     )
     if query:
-        await query.edit_message_text(msg_text, reply_markup=restart_keyboard(), parse_mode="Markdown")
+        await query.edit_message_text(msg_text, reply_markup=back_to_main_keyboard(), parse_mode="Markdown")
     else:
-        await update.message.reply_text(msg_text, reply_markup=restart_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text(msg_text, reply_markup=back_to_main_keyboard(), parse_mode="Markdown")
     return ASK_KEY_NAME
 
 
@@ -414,11 +442,12 @@ async def handle_key_name(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not re.match(r"^[a-zA-Z0-9\-_\s]+$", name_text) or len(name_text) > 30:
         await update.message.reply_text(
             "❌ Tên gợi nhớ không hợp lệ. Vui lòng nhập lại tên ngắn gọn (chỉ gồm chữ, số, dấu gạch ngang, tối đa 30 ký tự):",
-            reply_markup=restart_keyboard()
+            reply_markup=back_to_main_keyboard()
         )
         return ASK_KEY_NAME
         
     success, message, raw_key = await sync_to_async(create_api_key_for_user)(account.user, name_text)
+    is_admin = account.user.is_superuser or account.user.is_staff
     
     if success:
         warning_msg = (
@@ -431,14 +460,14 @@ async def handle_key_name(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         await update.message.reply_text(
             warning_msg,
-            reply_markup=main_menu_keyboard(),
+            reply_markup=main_menu_keyboard(is_admin),
             parse_mode="Markdown"
         )
         return ConversationHandler.END
     else:
         await update.message.reply_text(
             f"❌ {message}\n\nVui lòng thử lại hoặc gõ /cancel để hủy.",
-            reply_markup=restart_keyboard()
+            reply_markup=back_to_main_keyboard()
         )
         return ASK_KEY_NAME
 
@@ -648,9 +677,9 @@ async def start_admin_add_credit_flow(update: Update, context: ContextTypes.DEFA
         
     text = "💸 **Cộng tiền hạn mức**\n\nVui lòng nhập **Email** của khách hàng bạn muốn cộng tiền:"
     if query:
-        await query.edit_message_text(text, reply_markup=restart_keyboard(), parse_mode="Markdown")
+        await query.edit_message_text(text, reply_markup=back_to_admin_keyboard(), parse_mode="Markdown")
     else:
-        await update.message.reply_text(text, reply_markup=restart_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text(text, reply_markup=back_to_admin_keyboard(), parse_mode="Markdown")
     return ASK_ADMIN_CREDIT_EMAIL
 
 
@@ -668,7 +697,7 @@ async def handle_admin_credit_email(update: Update, context: ContextTypes.DEFAUL
     if not target_user:
         await update.message.reply_text(
             f"❌ Không tìm thấy người dùng có email `{email_text}`.\nVui lòng nhập lại hoặc gõ /cancel để hủy:",
-            reply_markup=restart_keyboard(),
+            reply_markup=back_to_admin_keyboard(),
             parse_mode="Markdown"
         )
         return ASK_ADMIN_CREDIT_EMAIL
@@ -676,7 +705,7 @@ async def handle_admin_credit_email(update: Update, context: ContextTypes.DEFAUL
     context.user_data["credit_target_email"] = email_text
     await update.message.reply_text(
         f"👤 Đang chọn tài khoản: `{email_text}`\n\nVui lòng nhập số tiền **USD** muốn cộng thêm (ví dụ: 50 hoặc 100):",
-        reply_markup=restart_keyboard(),
+        reply_markup=back_to_admin_keyboard(),
         parse_mode="Markdown"
     )
     return ASK_ADMIN_CREDIT_AMOUNT
@@ -697,7 +726,7 @@ async def handle_admin_credit_amount(update: Update, context: ContextTypes.DEFAU
     except ValueError:
         await update.message.reply_text(
             "❌ Số tiền không hợp lệ. Vui lòng nhập một số dương lớn hơn 0 (ví dụ: 100):",
-            reply_markup=restart_keyboard()
+            reply_markup=back_to_admin_keyboard()
         )
         return ASK_ADMIN_CREDIT_AMOUNT
         
@@ -715,7 +744,7 @@ async def handle_admin_credit_amount(update: Update, context: ContextTypes.DEFAU
     else:
         await update.message.reply_text(
             f"❌ {message}\n\nVui lòng nhập lại số tiền hoặc gõ /cancel để hủy:",
-            reply_markup=restart_keyboard()
+            reply_markup=back_to_admin_keyboard()
         )
         return ASK_ADMIN_CREDIT_AMOUNT
 
