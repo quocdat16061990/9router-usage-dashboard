@@ -76,12 +76,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return ConversationHandler.END
 
-    website_url = getattr(settings, "TOKEN_CODEX_WEBSITE_URL", "http://127.0.0.1:8873/")
     await update.message.reply_text(
         "Chào mừng bạn đến với hệ thống 9Router.\n\n"
         "Vui lòng nhập email của bạn đã đăng ký trên hệ thống để liên kết Telegram.\n\n"
-        f"💡 Chưa có tài khoản hoặc cần đăng nhập? Truy cập tại: {website_url}dang-ky/",
+        "🤖 *Các câu lệnh hỗ trợ:*\n"
+        "• `/me` - Xem thông tin số dư & hạn mức\n"
+        "• `/keys` - Xem danh sách & thu hồi API Keys\n"
+        "• `/createkey` - Tạo API Key mới nhanh\n"
+        "• `/promo` - Nhập mã khuyến mãi\n"
+        "• `/unlink` - Hủy liên kết Telegram\n"
+        "• `/help` - Xem hướng dẫn sử dụng",
         reply_markup=restart_keyboard(),
+        parse_mode="Markdown",
     )
     return ASK_EMAIL
 
