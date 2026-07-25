@@ -172,3 +172,59 @@ def delete_api_key_for_user(user, key_id: int) -> tuple[bool, str]:
         logger.exception(f"Lỗi khi thu hồi API Key {key_id} cho user {user.email}: {e}")
         return False, "Không thể thu hồi API Key lúc này do lỗi hệ thống."
 
+
+def grant_credit_to_user(target_email: str, amount_usd: float) -> tuple[bool, str]:
+    from decimal import Decimal
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from django.utils import timezone
+    from dashboard.models import CustomerAccount
+    from dashboard.payments import create_purchase_with_reserved_code
+    from dashboard.services import reactivate_quota_disabled_keys
+
+    User = get_user_model()
+    target_email = target_email.strip().lower()
+    
+    target_user = User.objects.filter(email=target_email).first()
+    if not target_user:
+        return False, f"Không tìm thấy tài khoản với email '{target_email}'."
+        
+    try:
+        amount_dec = Decimal(str(amount_usd))
+        if amount_dec <= 0:
+            return False, "Số tiền cộng thêm phải lớn hơn 0."
+    except Exception:
+        return False, "Số tiền không hợp lệ. Vui lòng nhập số hợp lệ."
+
+    try:
+        with transaction.atomic():
+            account, _ = CustomerAccount.objects.select_for_update().get_or_create(user=target_user)
+            credit_limit_before = account.credit_limit
+            account.credit_limit += amount_dec
+            account.low_credit_alert_sent_at = None
+            account.low_credit_alert_credit_limit = None
+            account.save(update_fields=["credit_limit", "low_credit_alert_sent_at", "low_credit_alert_credit_limit", "updated_at"])
+            
+            now = timezone.now()
+            create_purchase_with_reserved_code(
+                user=target_user,
+                purchase_usd=int(amount_usd),
+                amount_vnd=0,
+                provider_credit_usd=amount_dec,
+                promotion_code="ADMIN_GRANT",
+                status="paid",
+                credit_limit_before=credit_limit_before,
+                credit_limit_after=account.credit_limit,
+                paid_at=now,
+                credited_at=now,
+                expires_at=now,
+            )
+            
+            transaction.on_commit(
+                lambda: reactivate_quota_disabled_keys(target_user.id),
+                robust=True,
+            )
+            return True, f"Cộng tiền thành công! Hạn mức mới của tài khoản '{target_email}' là ${account.credit_limit:.4f}."
+    except Exception as e:
+        logger.exception(f"Lỗi khi cộng tiền cho user {target_email}: {e}")
+        return False, "Không thể cộng tiền lúc này do lỗi hệ thống."
