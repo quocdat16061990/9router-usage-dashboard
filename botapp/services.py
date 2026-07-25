@@ -113,14 +113,16 @@ def create_api_key_for_user(user, name: str) -> tuple[bool, str, str]:
     active_count = user.managed_api_keys.filter(is_active=True).count()
     spent = customer_spent(user)
     
-    if not account.allow_key_creation:
-        return False, "Tài khoản của bạn chưa được cấp quyền tự tạo API Key.", ""
-        
-    if account.credit_limit <= spent:
-        return False, f"Tài khoản của bạn đã hết số dư khả dụng (Đã dùng: ${spent:.4f} / Hạn mức: ${account.credit_limit:.4f}). Vui lòng nạp thêm tiền.", ""
-        
-    if active_count >= account.max_api_keys:
-        return False, f"Tài khoản của bạn đã đạt giới hạn số lượng API Key đang hoạt động tối đa ({account.max_api_keys} keys).", ""
+    is_admin = bool(user.is_superuser or user.is_staff)
+    if not is_admin:
+        if not account.allow_key_creation:
+            return False, "Tài khoản của bạn chưa được cấp quyền tự tạo API Key.", ""
+            
+        if account.credit_limit <= spent:
+            return False, f"Tài khoản của bạn đã hết số dư khả dụng (Đã dùng: ${spent:.4f} / Hạn mức: ${account.credit_limit:.4f}). Vui lòng nạp thêm tiền hoặc áp dụng mã khuyến mãi.", ""
+            
+        if active_count >= account.max_api_keys:
+            return False, f"Tài khoản của bạn đã đạt giới hạn số lượng API Key đang hoạt động tối đa ({account.max_api_keys} keys).", ""
 
     try:
         with transaction.atomic():
@@ -228,3 +230,41 @@ def grant_credit_to_user(target_email: str, amount_usd: float) -> tuple[bool, st
     except Exception as e:
         logger.exception(f"Lỗi khi cộng tiền cho user {target_email}: {e}")
         return False, "Không thể cộng tiền lúc này do lỗi hệ thống."
+
+
+def delete_customer_account_by_admin(email: str) -> tuple[bool, str]:
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from dashboard.models import CustomerAccount, ManagedApiKey, UserApiAccess
+    from dashboard.services import delete_router_api_key, RouterApiError
+
+    User = get_user_model()
+    email = email.strip().lower()
+    
+    target_user = User.objects.filter(email=email).first()
+    if not target_user:
+        return False, f"Không tìm thấy tài khoản với email '{email}'."
+        
+    if target_user.is_superuser or target_user.is_staff:
+        return False, "Không thể xóa tài khoản Quản trị viên vì lý do bảo mật."
+        
+    try:
+        with transaction.atomic():
+            keys = list(ManagedApiKey.objects.filter(user=target_user))
+            for key in keys:
+                try:
+                    delete_router_api_key(key.external_api_key_id)
+                except RouterApiError as exc:
+                    if "không còn tồn tại" not in str(exc).lower():
+                        logger.warning(f"Lỗi khi xóa key {key.external_api_key_id} trên router: {exc}")
+                
+                key.delete()
+                
+            UserApiAccess.objects.filter(user=target_user).delete()
+            CustomerAccount.objects.filter(user=target_user).delete()
+            target_user.delete()
+            
+            return True, f"Đã xóa vĩnh viễn tài khoản '{email}' và toàn bộ API Keys liên quan thành công."
+    except Exception as e:
+        logger.exception(f"Lỗi khi xóa tài khoản {email}: {e}")
+        return False, "Không thể xóa tài khoản lúc này do lỗi hệ thống."

@@ -134,11 +134,15 @@ def register(request):
 
 @login_required
 def create_api_key(request):
-    if request.method != "POST" or request.user.is_superuser:
+    if request.method != "POST":
         raise PermissionDenied
     account, _ = CustomerAccount.objects.get_or_create(user=request.user)
     form = ApiKeyCreateForm(request.POST)
-    eligible = account.allow_key_creation and account.credit_limit > customer_spent(request.user) and request.user.managed_api_keys.filter(is_active=True).count() < account.max_api_keys
+    eligible = request.user.is_superuser or (
+        account.allow_key_creation
+        and account.credit_limit > customer_spent(request.user)
+        and request.user.managed_api_keys.filter(is_active=True).count() < account.max_api_keys
+    )
     if not eligible:
         messages.error(request, "Tài khoản chưa đủ điều kiện tạo thêm API.")
     elif form.is_valid():
@@ -543,8 +547,12 @@ def user_management(request):
                 messages.success(request, "Đã cập nhật tài khoản người dùng.")
                 return redirect("user-management")
         elif action == "delete":
+            target_user_id = request.POST.get("user_id")
+            if target_user_id and str(target_user_id) == str(request.user.id):
+                messages.error(request, "Bạn không thể tự xóa tài khoản của chính mình.")
+                return redirect("user-management")
             delete_user = get_object_or_404(
-                User, pk=request.POST.get("user_id"), is_superuser=False
+                User, pk=target_user_id, is_superuser=False
             )
             display_name = delete_user.first_name or delete_user.email or delete_user.username
             active_keys = list(delete_user.managed_api_keys.filter(is_active=True))

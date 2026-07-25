@@ -91,10 +91,12 @@
                             <div class="user-actions">
                                 <span class="status-pill {% if not user.is_active %}inactive{% endif %}">{% if user.is_active %}Đang hoạt động{% else %}Đã khóa{% endif %}</span>
                                 <a href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a>
+                                {% if user.id != request.user.id %}
                                 <form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">
                                     {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}">
                                     <button class="delete-user-button" type="submit">Xóa user</button>
                                 </form>
+                                {% endif %}
                             </div>
                         </article>
                         {% empty %}<div class="empty-user-list"><strong>Chưa có người dùng</strong><p>Tạo tài khoản đầu tiên bằng biểu mẫu bên trái.</p></div>{% endfor %}
@@ -152,7 +154,7 @@
                             <td><div class="usage-progress"><div class="usage-progress-track"><span class="{{ user.usage_level }}" style="width: {{ user.usage_percent|floatformat:'0u' }}%"></span></div><small>{{ user.usage_percent|floatformat:"1u" }}%</small></div></td>
                             <td><span class="status-pill {% if not user.is_active %}inactive{% endif %}">{% if user.is_active %}Đang hoạt động{% else %}Đã khóa{% endif %}</span></td>
                             <td><strong class="member-cost-value">${{ user.filtered_usage_cost|floatformat:"6u" }}</strong></td>
-                            <td><div class="table-actions"><a class="table-edit-link" href="?history_user={{ user.id }}&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Lịch sử request</a><a class="table-edit-link" href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a><form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}"><button class="table-delete-button" type="submit">Xóa</button></form></div></td>
+                            <td><div class="table-actions"><a class="table-edit-link" href="?history_user={{ user.id }}&sort={{ selected_sort }}{% if member_search %}&member_search={{ member_search|urlencode }}{% endif %}">Lịch sử request</a><a class="table-edit-link" href="?edit={{ user.id }}&sort={{ selected_sort }}">Chỉnh sửa</a>{% if user.id != request.user.id %}<form method="post" onsubmit="return confirm('Xóa vĩnh viễn tài khoản {{ user.email|default:user.username|escapejs }} và thu hồi các API do tài khoản này tự tạo?');">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ user.id }}"><button class="table-delete-button" type="submit">Xóa</button></form>{% endif %}</div></td>
                         </tr>
                         {% empty %}<tr><td colspan="9" class="empty">{% if member_search %}Không tìm thấy thành viên theo tên hoặc email “{{ member_search }}”.{% else %}Chưa có thành viên để báo cáo.{% endif %}</td></tr>{% endfor %}
                     </tbody>

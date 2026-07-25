@@ -20,9 +20,18 @@ def main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 Thống kê hệ thống", callback_data="admin_stats")],
+        [InlineKeyboardButton("👥 Danh sách tài khoản", callback_data="admin_users_list")],
         [InlineKeyboardButton("💸 Cộng tiền hạn mức", callback_data="admin_add_credit")],
         [InlineKeyboardButton("🔒 Tài khoản quá hạn", callback_data="admin_overlimit")],
+        [InlineKeyboardButton("❌ Xóa tài khoản", callback_data="admin_delete_user")],
         [InlineKeyboardButton("🔙 Quay lại Menu chính", callback_data="main_menu")],
+    ])
+
+
+def confirm_delete_user_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Có, xóa vĩnh viễn", callback_data=f"admin_conf_del_user:{user_id}")],
+        [InlineKeyboardButton("❌ Hủy bỏ", callback_data="admin_panel")],
     ])
 
 

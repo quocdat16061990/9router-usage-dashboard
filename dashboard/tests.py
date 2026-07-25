@@ -987,6 +987,21 @@ class UsageReportTests(TestCase):
         self.assertRedirects(response, "/nguoi-dung/")
         self.assertTrue(get_user_model().objects.filter(pk=customer.id).exists())
 
+    def test_admin_cannot_delete_own_account(self):
+        admin_user = get_user_model().objects.create_superuser(
+            username="admin@example.com", password="test-password"
+        )
+        self.client.force_login(admin_user)
+
+        with override_settings(NINEROUTER_SQLITE_FILE=self.database_file):
+            response = self.client.post(
+                "/nguoi-dung/", {"action": "delete", "user_id": admin_user.id}, follow=True
+            )
+
+        self.assertRedirects(response, "/nguoi-dung/")
+        self.assertTrue(get_user_model().objects.filter(pk=admin_user.id).exists())
+        self.assertContains(response, "Bạn không thể tự xóa tài khoản của chính mình.")
+
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         DEFAULT_FROM_EMAIL="no-reply@example.com",

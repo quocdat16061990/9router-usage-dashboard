@@ -16,11 +16,12 @@ from telegram.ext import (
     filters,
 )
 
-from .keyboards import main_menu_keyboard, restart_keyboard, admin_menu_keyboard, back_to_main_keyboard, back_to_admin_keyboard
+from .keyboards import main_menu_keyboard, restart_keyboard, admin_menu_keyboard, back_to_main_keyboard, back_to_admin_keyboard, confirm_delete_user_keyboard
 from .services import (
     apply_free_promo_to_user,
     create_api_key_for_user,
     delete_api_key_for_user,
+    delete_customer_account_by_admin,
     grant_credit_to_user,
     is_valid_email,
     send_telegram_otp_email,
@@ -34,6 +35,7 @@ ASK_PROMO = 2
 ASK_KEY_NAME = 3
 ASK_ADMIN_CREDIT_EMAIL = 4
 ASK_ADMIN_CREDIT_AMOUNT = 5
+ASK_ADMIN_DELETE_EMAIL = 6
 
 
 def escape_markdown(text: str) -> str:
@@ -53,6 +55,12 @@ async def _find_account_by_chat_id(chat_id: int):
     )()
 
 
+async def _is_admin_account(account) -> bool:
+    if not account:
+        return False
+    return await sync_to_async(lambda: bool(account.user and (account.user.is_superuser or account.user.is_staff)))()
+
+
 async def _require_active_account(update: Update):
     account = await _find_account_by_chat_id(update.effective_chat.id)
     if not account:
@@ -65,10 +73,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     account = await _find_account_by_chat_id(update.effective_chat.id)
     if account:
-        is_admin = account.user.is_superuser or account.user.is_staff
+        is_admin = await _is_admin_account(account)
+        email_val = await sync_to_async(lambda: account.user.email)()
+        first_name_val = await sync_to_async(lambda: account.user.first_name)()
         await update.message.reply_text(
-            f"Xin chào {escape_markdown(account.user.first_name) or 'bạn'}!\n\n"
-            f"Email: `{account.user.email}`\n"
+            f"Xin chào {escape_markdown(first_name_val) or 'bạn'}!\n\n"
+            f"Email: `{email_val}`\n"
             f"Hạn mức: `${account.credit_limit:.4f}`\n\n"
             "Chọn chức năng bên dưới.",
             reply_markup=main_menu_keyboard(is_admin),
@@ -160,6 +170,7 @@ async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     from dashboard.models import CustomerAccount
     account, _ = await sync_to_async(CustomerAccount.objects.get_or_create)(user=user)
+    account.user = user
 
     now = timezone.now()
     otp_expired = account.telegram_otp_created_at and now > account.telegram_otp_created_at + timedelta(minutes=10)
@@ -187,7 +198,7 @@ async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await sync_to_async(account.save)()
 
     context.user_data.clear()
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = user.is_superuser or user.is_staff
     await update.message.reply_text(
         f"✅ Xác thực thành công!\n\nEmail: `{email_text}`\nHạn mức: `${account.credit_limit:.4f}`",
         reply_markup=main_menu_keyboard(is_admin),
@@ -202,18 +213,20 @@ async def my_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     
     from dashboard.services import customer_spent
-    spent = await sync_to_async(customer_spent)(account.user)
+    spent = await sync_to_async(lambda: customer_spent(account.user))()
     remaining = max(account.credit_limit - spent, 0)
+    email_val = await sync_to_async(lambda: account.user.email)()
+    first_name_val = await sync_to_async(lambda: account.user.first_name)()
     
     text = (
         "👤 Thông tin tài khoản của bạn\n\n"
-        f"Email: `{account.user.email}`\n"
-        f"Họ tên: {escape_markdown(account.user.first_name) or 'Chưa cập nhật'}\n"
+        f"Email: `{email_val}`\n"
+        f"Họ tên: {escape_markdown(first_name_val) or 'Chưa cập nhật'}\n"
         f"Hạn mức: `${account.credit_limit:.4f}`\n"
         f"Đã sử dụng: `${spent:.4f}`\n"
         f"Còn lại: `${remaining:.4f}`"
     )
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
     else:
@@ -230,7 +243,7 @@ async def show_keys(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     from dashboard.models import ManagedApiKey
-    keys = await sync_to_async(list)(ManagedApiKey.objects.filter(user=account.user, is_active=True))
+    keys = await sync_to_async(lambda: list(ManagedApiKey.objects.filter(user=account.user, is_active=True)))()
     
     keyboard_buttons = []
     if not keys:
@@ -258,12 +271,20 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     account = await _require_active_account(update)
     if not account:
         return
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
+    email_val = await sync_to_async(lambda: account.user.email)()
+    first_name_val = await sync_to_async(lambda: account.user.first_name)()
     await query.edit_message_text(
-        f"Xin chào {escape_markdown(account.user.first_name) or 'bạn'}!\n\nEmail: `{account.user.email}`",
+        f"Xin chào {escape_markdown(first_name_val) or 'bạn'}!\n\nEmail: `{email_val}`",
         reply_markup=main_menu_keyboard(is_admin),
         parse_mode="Markdown",
     )
+
+
+async def menu_exit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.clear()
+    await main_menu_callback(update, context)
+    return ConversationHandler.END
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -288,9 +309,11 @@ async def restart_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     
     account = await _find_account_by_chat_id(update.effective_chat.id)
     if account:
-        is_admin = account.user.is_superuser or account.user.is_staff
+        is_admin = await _is_admin_account(account)
+        first_name_val = await sync_to_async(lambda: account.user.first_name)()
+        email_val = await sync_to_async(lambda: account.user.email)()
         await query.edit_message_text(
-            f"Xin chào {escape_markdown(account.user.first_name) or 'bạn'}!\n\nEmail: `{account.user.email}`",
+            f"Xin chào {escape_markdown(first_name_val) or 'bạn'}!\n\nEmail: `{email_val}`",
             reply_markup=main_menu_keyboard(is_admin),
             parse_mode="Markdown",
         )
@@ -331,7 +354,7 @@ async def unlink_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat_id = update.effective_chat.id
 
     from dashboard.models import CustomerAccount
-    account = await sync_to_async(CustomerAccount.objects.filter(telegram_chat_id=chat_id).first)()
+    account = await sync_to_async(lambda: CustomerAccount.objects.filter(telegram_chat_id=chat_id).first())()
     if account:
         account.telegram_chat_id = None
         account.is_verified_telegram = False
@@ -349,7 +372,7 @@ async def unlink_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat_id = update.effective_chat.id
 
     from dashboard.models import CustomerAccount
-    account = await sync_to_async(CustomerAccount.objects.filter(telegram_chat_id=chat_id).first)()
+    account = await sync_to_async(lambda: CustomerAccount.objects.filter(telegram_chat_id=chat_id).first())()
     if account:
         account.telegram_chat_id = None
         account.is_verified_telegram = False
@@ -384,8 +407,8 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not account:
         return ConversationHandler.END
         
-    success, message = await sync_to_async(apply_free_promo_to_user)(account.user, promo_text)
-    is_admin = account.user.is_superuser or account.user.is_staff
+    success, message = await sync_to_async(lambda: apply_free_promo_to_user(account.user, promo_text))()
+    is_admin = await _is_admin_account(account)
     
     if success:
         await update.message.reply_text(
@@ -405,7 +428,7 @@ async def cancel_promo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     is_admin = False
     account = await _find_account_by_chat_id(update.effective_chat.id)
     if account:
-        is_admin = account.user.is_superuser or account.user.is_staff
+        is_admin = await _is_admin_account(account)
     await update.message.reply_text(
         "Đã hủy nhập mã khuyến mãi.",
         reply_markup=main_menu_keyboard(is_admin),
@@ -422,9 +445,40 @@ async def start_create_key_flow(update: Update, context: ContextTypes.DEFAULT_TY
     if not account:
         return ConversationHandler.END
         
+    is_admin = await _is_admin_account(account)
+    if not is_admin:
+        from dashboard.services import customer_spent
+        spent = await sync_to_async(lambda: customer_spent(account.user))()
+        active_count = await sync_to_async(lambda: account.user.managed_api_keys.filter(is_active=True).count())()
+        
+        if not account.allow_key_creation:
+            msg = "❌ Tài khoản của bạn chưa được cấp quyền tự tạo API Key."
+            if query:
+                await query.edit_message_text(msg, reply_markup=main_menu_keyboard(is_admin))
+            else:
+                await update.message.reply_text(msg, reply_markup=main_menu_keyboard(is_admin))
+            return ConversationHandler.END
+            
+        if account.credit_limit <= spent:
+            msg = f"❌ Tài khoản đã hết số dư khả dụng (Đã dùng: `${spent:.4f}` / Hạn mức: `${account.credit_limit:.4f}`).\n\nVui lòng nạp thêm tiền hoặc dùng mã khuyến mãi `/promo` trước khi tạo API Key."
+            if query:
+                await query.edit_message_text(msg, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
+            else:
+                await update.message.reply_text(msg, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
+            return ConversationHandler.END
+
+        if active_count >= account.max_api_keys:
+            msg = f"❌ Tài khoản đã đạt giới hạn số lượng API Key đang hoạt động ({account.max_api_keys} keys).\n\nVui lòng thu hồi bớt API Key cũ trong `/keys` trước khi tạo mới."
+            if query:
+                await query.edit_message_text(msg, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
+            else:
+                await update.message.reply_text(msg, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
+            return ConversationHandler.END
+
     msg_text = (
         "➕ **Tạo API Key mới**\n\n"
-        "Vui lòng nhập **Tên gợi nhớ** cho API Key mới của bạn (chỉ gồm chữ, số, tối đa 30 ký tự):"
+        "Vui lòng nhập **Tên gợi nhớ** cho API Key mới của bạn (chỉ gồm chữ, số, tối đa 30 ký tự):\n"
+        "*(Hoặc bấm Quay lại / gõ /cancel để hủy)*"
     )
     if query:
         await query.edit_message_text(msg_text, reply_markup=back_to_main_keyboard(), parse_mode="Markdown")
@@ -443,13 +497,13 @@ async def handle_key_name(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     import re
     if not re.match(r"^[a-zA-Z0-9\-_\s]+$", name_text) or len(name_text) > 30:
         await update.message.reply_text(
-            "❌ Tên gợi nhớ không hợp lệ. Vui lòng nhập lại tên ngắn gọn (chỉ gồm chữ, số, dấu gạch ngang, tối đa 30 ký tự):",
+            "❌ Tên gợi nhớ không hợp lệ. Vui lòng nhập lại tên ngắn gọn (chỉ gồm chữ, số, dấu gạch ngang, tối đa 30 ký tự) hoặc gõ /cancel để hủy:",
             reply_markup=back_to_main_keyboard()
         )
         return ASK_KEY_NAME
         
-    success, message, raw_key = await sync_to_async(create_api_key_for_user)(account.user, name_text)
-    is_admin = account.user.is_superuser or account.user.is_staff
+    success, message, raw_key = await sync_to_async(lambda: create_api_key_for_user(account.user, name_text))()
+    is_admin = await _is_admin_account(account)
     
     if success:
         warning_msg = (
@@ -468,17 +522,17 @@ async def handle_key_name(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
     else:
         await update.message.reply_text(
-            f"❌ {message}\n\nVui lòng thử lại hoặc gõ /cancel để hủy.",
-            reply_markup=back_to_main_keyboard()
+            f"❌ {message}",
+            reply_markup=main_menu_keyboard(is_admin)
         )
-        return ASK_KEY_NAME
+        return ConversationHandler.END
 
 
 async def cancel_key_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     is_admin = False
     account = await _find_account_by_chat_id(update.effective_chat.id)
     if account:
-        is_admin = account.user.is_superuser or account.user.is_staff
+        is_admin = await _is_admin_account(account)
     await update.message.reply_text(
         "Đã hủy quá trình tạo API Key.",
         reply_markup=main_menu_keyboard(is_admin),
@@ -495,10 +549,10 @@ async def delete_key_confirm_callback(update: Update, context: ContextTypes.DEFA
         return
         
     key_id = int(query.data.split(":")[1])
-    key = await sync_to_async(account.user.managed_api_keys.filter(pk=key_id, is_active=True).first)()
+    key = await sync_to_async(lambda: account.user.managed_api_keys.filter(pk=key_id, is_active=True).first())()
     
     if not key:
-        is_admin = account.user.is_superuser or account.user.is_staff
+        is_admin = await _is_admin_account(account)
         await query.edit_message_text(
             "❌ API Key này không tồn tại hoặc đã bị thu hồi trước đó.",
             reply_markup=main_menu_keyboard(is_admin)
@@ -529,9 +583,9 @@ async def delete_key_execute_callback(update: Update, context: ContextTypes.DEFA
         
     key_id = int(query.data.split(":")[1])
     from .services import delete_api_key_for_user
-    success, message = await sync_to_async(delete_api_key_for_user)(account.user, key_id)
+    success, message = await sync_to_async(lambda: delete_api_key_for_user(account.user, key_id))()
     
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if success:
         await query.edit_message_text(
             f"✅ {message}",
@@ -553,7 +607,7 @@ async def admin_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if not account:
         return
         
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if not is_admin:
         await query.edit_message_text("❌ Bạn không có quyền truy cập chức năng này.", reply_markup=main_menu_keyboard(False))
         return
@@ -578,7 +632,7 @@ async def admin_stats_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if not account:
         return
         
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if not is_admin:
         return
         
@@ -633,7 +687,7 @@ async def admin_overlimit_callback(update: Update, context: ContextTypes.DEFAULT
     if not account:
         return
         
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if not is_admin:
         return
         
@@ -644,18 +698,63 @@ async def admin_overlimit_callback(update: Update, context: ContextTypes.DEFAULT
     
     overlimit_users = []
     for acc in accounts:
-        spent = await sync_to_async(customer_spent)(acc.user)
+        spent = await sync_to_async(lambda: customer_spent(acc.user))()
+        email_val = await sync_to_async(lambda: acc.user.email)()
         if acc.credit_limit <= spent:
-            overlimit_users.append((acc.user.email, acc.credit_limit, spent))
+            overlimit_users.append((email_val, acc.credit_limit, spent))
             
     if not overlimit_users:
-        text = "🔒 **TÀI KHOẢN QUÁ HẠN**\n\nHiện tại không có tài khoản khách hàng nào bị vượt/hết hạn mức!"
+        text = "🔒 **TÀI KHOẢN QUÁ HẠN**\n\nHhiện tại không có tài khoản khách hàng nào bị vượt/hết hạn mức!"
     else:
         text = "🔒 **DANH SÁCH TÀI KHOẢN QUÁ HẠN MỨC:**\n\n"
         for i, (email, limit, spent) in enumerate(overlimit_users, 1):
             text += f"{i}. `{email}`\n"
             text += f"   • Hạn mức: `${limit:.4f}`\n"
             text += f"   • Đã dùng: `${spent:.4f}`\n\n"
+            
+    from .keyboards import admin_menu_keyboard
+    if query:
+        await query.edit_message_text(text, reply_markup=admin_menu_keyboard(), parse_mode="Markdown")
+    else:
+        await update.message.reply_text(text, reply_markup=admin_menu_keyboard(), parse_mode="Markdown")
+
+
+async def admin_users_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query:
+        await query.answer()
+        
+    account = await _require_active_account(update)
+    if not account:
+        return
+        
+    is_admin = await _is_admin_account(account)
+    if not is_admin:
+        return
+        
+    from dashboard.models import CustomerAccount
+    from datetime import timedelta
+    
+    accounts = await sync_to_async(list)(
+        CustomerAccount.objects.select_related("user").order_by("-created_at")
+    )
+    
+    if not accounts:
+        text = "👥 **DANH SÁCH TÀI KHOẢN**\n\nHệ thống hiện chưa có tài khoản khách hàng nào!"
+    else:
+        text = "👥 **DANH SÁCH TÀI KHOẢN KHÁCH HÀNG:**\n\n"
+        for i, acc in enumerate(accounts, 1):
+            created_str = acc.created_at.strftime("%d/%m/%Y")
+            expiry = acc.created_at + timedelta(days=365)
+            expiry_str = expiry.strftime("%d/%m/%Y")
+            tg_status = "Đã liên kết 🟢" if acc.telegram_chat_id else "Chưa liên kết 🔴"
+            email_val = await sync_to_async(lambda: acc.user.email)()
+            
+            text += f"{i}. `{email_val}`\n"
+            text += f"   • Hạn mức: `${acc.credit_limit:.4f}`\n"
+            text += f"   • Đăng ký: {created_str}\n"
+            text += f"   • Hạn dùng (1 năm): {expiry_str}\n"
+            text += f"   • Telegram: {tg_status}\n\n"
             
     from .keyboards import admin_menu_keyboard
     if query:
@@ -673,7 +772,7 @@ async def start_admin_add_credit_flow(update: Update, context: ContextTypes.DEFA
     if not account:
         return ConversationHandler.END
         
-    is_admin = account.user.is_superuser or account.user.is_staff
+    is_admin = await _is_admin_account(account)
     if not is_admin:
         return ConversationHandler.END
         
@@ -733,7 +832,7 @@ async def handle_admin_credit_amount(update: Update, context: ContextTypes.DEFAU
         return ASK_ADMIN_CREDIT_AMOUNT
         
     from .services import grant_credit_to_user
-    success, message = await sync_to_async(grant_credit_to_user)(target_email, amount_usd)
+    success, message = await sync_to_async(lambda: grant_credit_to_user(target_email, amount_usd))()
     
     from .keyboards import admin_menu_keyboard
     if success:
@@ -760,6 +859,126 @@ async def cancel_admin_credit(update: Update, context: ContextTypes.DEFAULT_TYPE
     return ConversationHandler.END
 
 
+# Admin Delete User Conversation Flow:
+async def start_admin_delete_user_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if query:
+        await query.answer()
+        
+    account = await _require_active_account(update)
+    if not account:
+        return ConversationHandler.END
+        
+    is_admin = await _is_admin_account(account)
+    if not is_admin:
+        return ConversationHandler.END
+        
+    text = "❌ **Xóa tài khoản khách hàng**\n\nVui lòng nhập **Email** của khách hàng bạn muốn xóa vĩnh viễn:"
+    if query:
+        await query.edit_message_text(text, reply_markup=back_to_admin_keyboard(), parse_mode="Markdown")
+    else:
+        await update.message.reply_text(text, reply_markup=back_to_admin_keyboard(), parse_mode="Markdown")
+    return ASK_ADMIN_DELETE_EMAIL
+
+
+async def handle_admin_delete_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    email_text = update.message.text.strip().lower()
+    
+    account = await _require_active_account(update)
+    if not account:
+        return ConversationHandler.END
+        
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    target_user = await sync_to_async(User.objects.filter(email=email_text).first)()
+    
+    if not target_user:
+        await update.message.reply_text(
+            f"❌ Không tìm thấy người dùng có email `{email_text}`.\nVui lòng nhập lại hoặc gõ /cancel để hủy:",
+            reply_markup=back_to_admin_keyboard(),
+            parse_mode="Markdown"
+        )
+        return ASK_ADMIN_DELETE_EMAIL
+        
+    target_is_admin = await sync_to_async(lambda: bool(target_user.is_superuser or target_user.is_staff))()
+    if target_is_admin:
+        await update.message.reply_text(
+            "❌ Không thể xóa tài khoản Quản trị viên vì lý do bảo mật.\n\nVui lòng nhập email tài khoản khách hàng thường hoặc gõ /cancel để hủy:",
+            reply_markup=back_to_admin_keyboard(),
+            parse_mode="Markdown"
+        )
+        return ASK_ADMIN_DELETE_EMAIL
+        
+    context.user_data["delete_target_user_id"] = target_user.id
+    context.user_data["delete_target_email"] = email_text
+    
+    warning_msg = (
+        f"⚠️ **CẢNH BÁO XÓA TÀI KHOẢN VĨNH VIỄN:**\n\n"
+        f"Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản `{email_text}`?\n\n"
+        f"Hành động này sẽ:\n"
+        f"1. Thu hồi và vô hiệu hóa **toàn bộ API Key** của người dùng này trên 9Router và hệ thống.\n"
+        f"2. Xóa thông tin hạn mức, lịch sử giao dịch và tài khoản người dùng khỏi hệ thống.\n"
+        f"3. **Hành động này không thể hoàn tác!**"
+    )
+    
+    from .keyboards import confirm_delete_user_keyboard
+    await update.message.reply_text(
+        warning_msg,
+        reply_markup=confirm_delete_user_keyboard(target_user.id),
+        parse_mode="Markdown"
+    )
+    return ConversationHandler.END
+
+
+async def admin_conf_del_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    account = await _require_active_account(update)
+    if not account:
+        return
+        
+    is_admin = await _is_admin_account(account)
+    if not is_admin:
+        return
+        
+    user_id = int(query.data.split(":")[1])
+    
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    target_user = await sync_to_async(User.objects.filter(pk=user_id).first)()
+    
+    if not target_user:
+        await query.edit_message_text(
+            "❌ Tài khoản này không tồn tại hoặc đã bị xóa trước đó.",
+            reply_markup=admin_menu_keyboard()
+        )
+        return
+        
+    from .services import delete_customer_account_by_admin
+    success, message = await sync_to_async(lambda: delete_customer_account_by_admin(target_user.email))()
+    
+    if success:
+        await query.edit_message_text(
+            f"✅ {message}",
+            reply_markup=admin_menu_keyboard()
+        )
+    else:
+        await query.edit_message_text(
+            f"❌ {message}",
+            reply_markup=admin_menu_keyboard()
+        )
+
+
+async def cancel_admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    from .keyboards import admin_menu_keyboard
+    await update.message.reply_text(
+        "Đã hủy tác vụ xóa tài khoản.",
+        reply_markup=admin_menu_keyboard(),
+    )
+    return ConversationHandler.END
+
+
 
 def build_application() -> Application:
     if not settings.TELEGRAM_BOT_TOKEN:
@@ -779,6 +998,18 @@ def build_application() -> Application:
         await app.bot.set_my_commands(commands)
 
     application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
+    
+    async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logger.error("Lỗi xử lý sự kiện Telegram Bot:", exc_info=context.error)
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(
+                    "❌ Đã xảy ra lỗi hệ thống. Vui lòng thử lại hoặc bấm /start."
+                )
+            except Exception:
+                pass
+
+    application.add_error_handler(global_error_handler)
     conversation_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
@@ -810,12 +1041,13 @@ def build_application() -> Application:
         states={
             ASK_PROMO: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_promo_code),
+                CallbackQueryHandler(menu_exit_callback, pattern="^main_menu$"),
                 CallbackQueryHandler(restart_flow, pattern="^restart_flow$"),
             ],
         },
         fallbacks=[
             CommandHandler("cancel", cancel_promo),
-            CallbackQueryHandler(main_menu_callback, pattern="^main_menu$"),
+            CallbackQueryHandler(menu_exit_callback, pattern="^main_menu$"),
         ],
         per_chat=True,
         per_user=True,
@@ -831,12 +1063,13 @@ def build_application() -> Application:
         states={
             ASK_KEY_NAME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_key_name),
+                CallbackQueryHandler(menu_exit_callback, pattern="^main_menu$"),
                 CallbackQueryHandler(restart_flow, pattern="^restart_flow$"),
             ],
         },
         fallbacks=[
             CommandHandler("cancel", cancel_key_creation),
-            CallbackQueryHandler(main_menu_callback, pattern="^main_menu$"),
+            CallbackQueryHandler(menu_exit_callback, pattern="^main_menu$"),
         ],
         per_chat=True,
         per_user=True,
@@ -851,6 +1084,7 @@ def build_application() -> Application:
     application.add_handler(CallbackQueryHandler(admin_panel_callback, pattern="^admin_panel$"))
     application.add_handler(CallbackQueryHandler(admin_stats_callback, pattern="^admin_stats$"))
     application.add_handler(CallbackQueryHandler(admin_overlimit_callback, pattern="^admin_overlimit$"))
+    application.add_handler(CallbackQueryHandler(admin_users_list_callback, pattern="^admin_users_list$"))
     application.add_handler(CommandHandler("admin", admin_panel_callback))
 
     admin_credit_conversation_handler = ConversationHandler(
@@ -876,6 +1110,30 @@ def build_application() -> Application:
         per_message=False,
     )
     application.add_handler(admin_credit_conversation_handler)
+
+    # Admin Delete User Conversation Flow
+    admin_delete_conversation_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_admin_delete_user_flow, pattern="^admin_delete_user$")
+        ],
+        states={
+            ASK_ADMIN_DELETE_EMAIL: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_delete_email),
+                CallbackQueryHandler(restart_flow, pattern="^restart_flow$")
+            ],
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel_admin_delete),
+            CallbackQueryHandler(admin_panel_callback, pattern="^admin_panel$")
+        ],
+        per_chat=True,
+        per_user=True,
+        per_message=False,
+    )
+    application.add_handler(admin_delete_conversation_handler)
+
+    # Callback for confirming deletion
+    application.add_handler(CallbackQueryHandler(admin_conf_del_user_callback, pattern="^admin_conf_del_user:"))
 
     application.add_handler(CommandHandler("keys", show_keys))
     application.add_handler(CommandHandler("me", my_info))
