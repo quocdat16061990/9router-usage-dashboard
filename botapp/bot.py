@@ -187,9 +187,10 @@ async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await sync_to_async(account.save)()
 
     context.user_data.clear()
+    is_admin = account.user.is_superuser or account.user.is_staff
     await update.message.reply_text(
         f"✅ Xác thực thành công!\n\nEmail: `{email_text}`\nHạn mức: `${account.credit_limit:.4f}`",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(is_admin),
         parse_mode="Markdown",
     )
     return ConversationHandler.END
@@ -212,10 +213,11 @@ async def my_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Đã sử dụng: `${spent:.4f}`\n"
         f"Còn lại: `${remaining:.4f}`"
     )
+    is_admin = account.user.is_superuser or account.user.is_staff
     if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+        await update.callback_query.edit_message_text(text, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
     else:
-        await update.message.reply_text(text, reply_markup=main_menu_keyboard(), parse_mode="Markdown")
+        await update.message.reply_text(text, reply_markup=main_menu_keyboard(is_admin), parse_mode="Markdown")
 
 
 async def show_keys(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
