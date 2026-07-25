@@ -1,0 +1,10 @@
+Xin chao,
+
+Ban vua yeu cau ma OTP cho chuc nang {{ purpose }}.
+
+Ma OTP cua ban la: {{ code }}
+Ma co hieu luc trong {{ expire_minutes }} phut.
+
+Neu ban khong thuc hien yeu cau nay, vui long bo qua email.
+
+Ho tro: {{ support_email }}

@@ -204,7 +204,7 @@ def token_purchase(request):
             promotion = settings.TOKEN_PROMOTIONS.get(promotion_code)
             if not promotion:
                 form.add_error("promotion_code", "Mã khuyến mãi không tồn tại hoặc đã hết hiệu lực.")
-            elif "amount_vnd" not in promotion and package_usd < settings.TOKEN_PROMOTION_MIN_PURCHASE_USD:
+            elif "amount_vnd" not in promotion and not promotion.get("free_credit") and package_usd < settings.TOKEN_PROMOTION_MIN_PURCHASE_USD:
                 form.add_error(
                     "promotion_code",
                     f"Mã áp dụng từ gói {settings.TOKEN_PROMOTION_MIN_PURCHASE_USD} USD.",

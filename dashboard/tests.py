@@ -246,6 +246,9 @@ class UsageReportTests(TestCase):
         self.temp_directory = TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
         self.database_file = Path(self.temp_directory.name) / "data.sqlite"
+        self.settings_override = override_settings(NINEROUTER_SQLITE_FILE=self.database_file)
+        self.settings_override.enable()
+        self.addCleanup(self.settings_override.disable)
         self.customer_key_value = "test-key-value"
         self.other_key_value = "other-test-key-value"
         self.customer_key_id = "11111111-1111-1111-1111-111111111111"

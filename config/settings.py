@@ -18,6 +18,9 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://altcp.anhlaptrinh.vn",
     "https://codex.anhlaptrinh.vn",
+    "http://tologrom.devoverflow.xyz:8873",
+    "http://tologrom.devoverflow.xyz",
+    "https://tologrom.devoverflow.xyz",
 ]
 
 INSTALLED_APPS = [
@@ -28,6 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "dashboard",
+    "botapp",
 ]
 
 MIDDLEWARE = [
@@ -188,3 +192,6 @@ X_FRAME_OPTIONS = "DENY"
 NINEROUTER_SQLITE_FILE = Path(
     os.environ.get("NINEROUTER_SQLITE_FILE", "/root/.9router/db/data.sqlite")
 )
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+

@@ -38,6 +38,10 @@ class CustomerAccount(models.Model):
     low_credit_alert_credit_limit = models.DecimalField(
         max_digits=12, decimal_places=4, null=True, blank=True
     )
+    telegram_chat_id = models.BigIntegerField(unique=True, null=True, blank=True, verbose_name="Telegram Chat ID")
+    telegram_otp = models.CharField(max_length=6, null=True, blank=True, verbose_name="Mã OTP Telegram")
+    telegram_otp_created_at = models.DateTimeField(null=True, blank=True, verbose_name="Thời gian tạo OTP Telegram")
+    is_verified_telegram = models.BooleanField(default=False, verbose_name="Đã xác thực Telegram")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

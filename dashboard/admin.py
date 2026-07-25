@@ -42,11 +42,12 @@ class UserApiAccessAdmin(admin.ModelAdmin):
 
 @admin.register(CustomerAccount)
 class CustomerAccountAdmin(admin.ModelAdmin):
-    list_display = ("user", "credit_limit", "spent_amount", "remaining_amount", "allow_key_creation", "max_api_keys", "updated_at")
+    list_display = ("user", "credit_limit", "spent_amount", "remaining_amount", "allow_key_creation", "max_api_keys", "telegram_chat_id", "is_verified_telegram", "updated_at")
     list_editable = ("credit_limit", "allow_key_creation", "max_api_keys")
-    search_fields = ("user__username", "user__email", "user__first_name")
+    list_filter = ("is_verified_telegram", "allow_key_creation")
+    search_fields = ("user__username", "user__email", "user__first_name", "telegram_chat_id")
     autocomplete_fields = ("user",)
-    readonly_fields = ("spent_amount", "remaining_amount", "created_at", "updated_at")
+    readonly_fields = ("spent_amount", "remaining_amount", "telegram_chat_id", "telegram_otp", "telegram_otp_created_at", "is_verified_telegram", "created_at", "updated_at")
 
     @admin.display(description="Đã sử dụng (USD)")
     def spent_amount(self, obj):
