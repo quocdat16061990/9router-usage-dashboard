@@ -39,6 +39,7 @@ ASK_ADMIN_CREDIT_AMOUNT = 5
 ASK_ADMIN_DELETE_EMAIL = 6
 ASK_ADMIN_CREATE_USER_EMAIL = 7
 ASK_ADMIN_CREATE_USER_PASSWORD = 8
+ASK_REGISTER_PASSWORD = 9
 
 
 def escape_markdown(text: str) -> str:
@@ -90,7 +91,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "Chào mừng bạn đến với hệ thống 9Router.\n\n"
+        "Chào mừng bạn đến với hệ thống Anh Lập Trình.\n\n"
         "Vui lòng nhập email của bạn đã đăng ký trên hệ thống để liên kết Telegram.\n\n"
         "🤖 *Các câu lệnh hỗ trợ:*\n"
         "• `/me` - Xem thông tin số dư & hạn mức\n"
@@ -116,11 +117,15 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     
     user = await sync_to_async(User.objects.filter(email=email_text).first)()
     if not user:
+        context.user_data["register_email"] = email_text
         await update.message.reply_text(
-            "❌ Email này không tồn tại trên hệ thống. Vui lòng liên hệ quản trị viên.",
+            f"Email `{email_text}` chưa có trên hệ thống.\n\n"
+            "Vui lòng nhập mật khẩu bạn muốn sử dụng để đăng ký tài khoản Khách Hàng mới:\n"
+            "*(Lưu ý: Bạn nên xoá tin nhắn mật khẩu sau khi đăng ký thành công)*",
             reply_markup=restart_keyboard(),
+            parse_mode="Markdown",
         )
-        return ConversationHandler.END
+        return ASK_REGISTER_PASSWORD
 
     from dashboard.models import CustomerAccount
     account, _ = await sync_to_async(CustomerAccount.objects.get_or_create)(user=user)
@@ -154,6 +159,45 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         parse_mode="Markdown",
     )
     return ASK_OTP
+
+
+async def handle_register_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    password = update.message.text.strip()
+    email_text = context.user_data.get("register_email")
+    if not email_text:
+        await update.message.reply_text("❌ Lỗi phiên đăng ký. Vui lòng bấm /start để thử lại.", reply_markup=restart_keyboard())
+        return ConversationHandler.END
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    from dashboard.models import CustomerAccount
+
+    try:
+        user = await sync_to_async(User.objects.create_user)(username=email_text, email=email_text, password=password)
+        account, _ = await sync_to_async(CustomerAccount.objects.get_or_create)(user=user)
+        
+        otp_code = f"{random.randint(100000, 999999)}"
+        account.telegram_otp = otp_code
+        account.telegram_otp_created_at = timezone.now()
+        await sync_to_async(account.save)(update_fields=["telegram_otp", "telegram_otp_created_at"])
+        
+        email_sent = await sync_to_async(send_telegram_otp_email)(email_text, otp_code)
+        if not email_sent:
+            raise RuntimeError("Không gửi được OTP xác thực Telegram.")
+            
+        context.user_data["pending_email"] = email_text
+        context.user_data["otp_attempts"] = 0
+        await update.message.reply_text(
+            f"✅ Đã tạo tài khoản thành công.\n\n"
+            f"🔑 Hệ thống đã gửi mã OTP 6 số đến `{email_text}`. Mã có hiệu lực trong 10 phút.",
+            reply_markup=restart_keyboard(),
+            parse_mode="Markdown",
+        )
+        return ASK_OTP
+    except Exception:
+        logger.exception("Không tạo được tài khoản hoặc gửi OTP.")
+        await update.message.reply_text("❌ Đã xảy ra lỗi hệ thống khi đăng ký. Vui lòng thử lại sau.", reply_markup=restart_keyboard())
+        return ConversationHandler.END
 
 
 async def handle_otp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -323,7 +367,7 @@ async def restart_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return ConversationHandler.END
 
     await query.edit_message_text(
-        "Chào mừng bạn đến với hệ thống 9Router.\n\n"
+        "Chào mừng bạn đến với hệ thống Anh Lập Trình.\n\n"
         "Vui lòng nhập email của bạn đã đăng ký trên hệ thống để liên kết Telegram.\n\n"
         "🤖 *Các câu lệnh hỗ trợ:*\n"
         "• `/me` - Xem thông tin số dư & hạn mức\n"
@@ -566,7 +610,7 @@ async def delete_key_confirm_callback(update: Update, context: ContextTypes.DEFA
     warning_text = (
         f"⚠️ **CẢNH BÁO THU HỒI KEY:**\n\n"
         f"Bạn có chắc chắn muốn thu hồi (xóa) API Key *{escape_markdown(key.api_name)}* (`{key.key_prefix}...`)?\n\n"
-        f"Hành động này sẽ **ngay lập tức vô hiệu hóa** key trên 9Router và làm gián đoạn mọi ứng dụng đang sử dụng nó. "
+        f"Hành động này sẽ **ngay lập tức vô hiệu hóa** key trên Anh Lập Trình và làm gián đoạn mọi ứng dụng đang sử dụng nó. "
         f"Hành động này **không thể hoàn tác**!"
     )
     await query.edit_message_text(
@@ -919,7 +963,7 @@ async def handle_admin_delete_email(update: Update, context: ContextTypes.DEFAUL
         f"⚠️ **CẢNH BÁO XÓA TÀI KHOẢN VĨNH VIỄN:**\n\n"
         f"Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản `{email_text}`?\n\n"
         f"Hành động này sẽ:\n"
-        f"1. Thu hồi và vô hiệu hóa **toàn bộ API Key** của người dùng này trên 9Router và hệ thống.\n"
+        f"1. Thu hồi và vô hiệu hóa **toàn bộ API Key** của người dùng này trên Anh Lập Trình và hệ thống.\n"
         f"2. Xóa thông tin hạn mức, lịch sử giao dịch và tài khoản người dùng khỏi hệ thống.\n"
         f"3. **Hành động này không thể hoàn tác!**"
     )
@@ -1115,6 +1159,10 @@ def build_application() -> Application:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email),
                 CallbackQueryHandler(restart_flow, pattern="^restart_flow$"),
             ],
+            ASK_REGISTER_PASSWORD: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_register_password),
+                CallbackQueryHandler(restart_flow, pattern="^restart_flow$"),
+            ],
             ASK_OTP: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_otp),
                 CallbackQueryHandler(restart_flow, pattern="^restart_flow$"),
@@ -1270,5 +1318,5 @@ def build_application() -> Application:
 def run_bot() -> None:
     logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
     app = build_application()
-    print("Bot 9Router đang chạy và lắng nghe tin nhắn...")
+    print("Bot Anh Lập Trình đang chạy và lắng nghe tin nhắn...")
     app.run_polling()

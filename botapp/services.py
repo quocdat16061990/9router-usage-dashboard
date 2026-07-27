@@ -15,7 +15,7 @@ def is_valid_email(email: str) -> bool:
 def send_telegram_otp_email(to_email: str, otp_code: str) -> bool:
     try:
         # Fallback values from settings or defaults
-        company_name = getattr(settings, "COMPANY_NAME", "9Router")
+        company_name = getattr(settings, "COMPANY_NAME", "Anh Lập Trình")
         support_email = getattr(settings, "EMAIL_ACCOUNT", settings.DEFAULT_FROM_EMAIL)
         
         context = {
