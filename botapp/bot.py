@@ -20,6 +20,7 @@ from .keyboards import main_menu_keyboard, restart_keyboard, admin_menu_keyboard
 from .services import (
     apply_free_promo_to_user,
     create_api_key_for_user,
+    create_customer_account_by_admin,
     delete_api_key_for_user,
     delete_customer_account_by_admin,
     grant_credit_to_user,
@@ -36,6 +37,8 @@ ASK_KEY_NAME = 3
 ASK_ADMIN_CREDIT_EMAIL = 4
 ASK_ADMIN_CREDIT_AMOUNT = 5
 ASK_ADMIN_DELETE_EMAIL = 6
+ASK_ADMIN_CREATE_USER_EMAIL = 7
+ASK_ADMIN_CREATE_USER_PASSWORD = 8
 
 
 def escape_markdown(text: str) -> str:
@@ -980,6 +983,93 @@ async def cancel_admin_delete(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
+async def start_admin_create_user_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if query:
+        await query.answer()
+        account = await _find_account_by_chat_id(update.effective_chat.id)
+        is_admin = await _is_admin_account(account)
+        if not is_admin:
+            await query.edit_message_text("❌ Bạn không có quyền thực hiện chức năng này.")
+            return ConversationHandler.END
+
+        await query.edit_message_text(
+            "➕ *Thêm khách hàng mới*\n\n"
+            "Vui lòng nhập **Email** của khách hàng muốn tạo:\n"
+            "_(Hoặc bấm /cancel để hủy)_",
+            parse_mode="Markdown"
+        )
+    return ASK_ADMIN_CREATE_USER_EMAIL
+
+
+async def handle_admin_create_user_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    email = update.message.text.strip()
+    from .services import is_valid_email
+    if not is_valid_email(email):
+        await update.message.reply_text(
+            "⚠️ Email không hợp lệ. Vui lòng nhập lại email đúng định dạng:\n"
+            "_(Hoặc bấm /cancel để hủy)_"
+        )
+        return ASK_ADMIN_CREATE_USER_EMAIL
+
+    context.user_data["create_user_email"] = email.lower()
+    await update.message.reply_text(
+        f"Email hợp lệ: `{email}`\n\n"
+        "Bây giờ, vui lòng nhập **Mật khẩu** khởi tạo cho khách hàng (ít nhất 6 ký tự):\n"
+        "_(Hoặc bấm /cancel để hủy)_",
+        parse_mode="Markdown"
+    )
+    return ASK_ADMIN_CREATE_USER_PASSWORD
+
+
+async def handle_admin_create_user_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    password = update.message.text.strip()
+    if len(password) < 6:
+        await update.message.reply_text(
+            "⚠️ Mật khẩu quá ngắn. Vui lòng nhập mật khẩu có ít nhất 6 ký tự:\n"
+            "_(Hoặc bấm /cancel để hủy)_"
+        )
+        return ASK_ADMIN_CREATE_USER_PASSWORD
+
+    email = context.user_data.get("create_user_email")
+    if not email:
+        await update.message.reply_text("❌ Đã xảy ra lỗi: Không tìm thấy email trong phiên làm việc. Vui lòng thử lại.")
+        return ConversationHandler.END
+
+    from .keyboards import admin_menu_keyboard
+    success, message = await sync_to_async(create_customer_account_by_admin)(email, password, 0.0)
+    
+    if success:
+        await update.message.reply_text(
+            f"✅ *Thành công!*\n{message}",
+            reply_markup=admin_menu_keyboard(),
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text(
+            f"❌ *Thất bại:*\n{message}",
+            reply_markup=admin_menu_keyboard(),
+            parse_mode="Markdown"
+        )
+
+    # Dọn dẹp dữ liệu phiên làm việc
+    if "create_user_email" in context.user_data:
+        del context.user_data["create_user_email"]
+
+    return ConversationHandler.END
+
+
+async def cancel_admin_create_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    from .keyboards import admin_menu_keyboard
+    if "create_user_email" in context.user_data:
+        del context.user_data["create_user_email"]
+    await update.message.reply_text(
+        "Đã hủy tác vụ thêm khách hàng.",
+        reply_markup=admin_menu_keyboard(),
+    )
+    return ConversationHandler.END
+
+
 def build_application() -> Application:
     if not settings.TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN chưa được cấu hình trong .env")
@@ -1000,6 +1090,10 @@ def build_application() -> Application:
     application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
     
     async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        from telegram.error import BadRequest
+        if isinstance(context.error, BadRequest) and "Message is not modified" in str(context.error):
+            return
+            
         logger.error("Lỗi xử lý sự kiện Telegram Bot:", exc_info=context.error)
         if isinstance(update, Update) and update.effective_message:
             try:
@@ -1131,6 +1225,31 @@ def build_application() -> Application:
         per_message=False,
     )
     application.add_handler(admin_delete_conversation_handler)
+
+    # Admin Create User Conversation Flow
+    admin_create_user_conversation_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_admin_create_user_flow, pattern="^admin_create_user$")
+        ],
+        states={
+            ASK_ADMIN_CREATE_USER_EMAIL: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_create_user_email),
+                CallbackQueryHandler(restart_flow, pattern="^restart_flow$")
+            ],
+            ASK_ADMIN_CREATE_USER_PASSWORD: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_create_user_password),
+                CallbackQueryHandler(restart_flow, pattern="^restart_flow$")
+            ],
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel_admin_create_user),
+            CallbackQueryHandler(admin_panel_callback, pattern="^admin_panel$")
+        ],
+        per_chat=True,
+        per_user=True,
+        per_message=False,
+    )
+    application.add_handler(admin_create_user_conversation_handler)
 
     # Callback for confirming deletion
     application.add_handler(CallbackQueryHandler(admin_conf_del_user_callback, pattern="^admin_conf_del_user:"))

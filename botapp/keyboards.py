@@ -22,6 +22,7 @@ def admin_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📊 Thống kê hệ thống", callback_data="admin_stats")],
         [InlineKeyboardButton("👥 Danh sách tài khoản", callback_data="admin_users_list")],
         [InlineKeyboardButton("💸 Cộng tiền hạn mức", callback_data="admin_add_credit")],
+        [InlineKeyboardButton("➕ Thêm khách hàng", callback_data="admin_create_user")],
         [InlineKeyboardButton("🔒 Tài khoản quá hạn", callback_data="admin_overlimit")],
         [InlineKeyboardButton("❌ Xóa tài khoản", callback_data="admin_delete_user")],
         [InlineKeyboardButton("🔙 Quay lại Menu chính", callback_data="main_menu")],

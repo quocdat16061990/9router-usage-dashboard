@@ -232,6 +232,36 @@ def grant_credit_to_user(target_email: str, amount_usd: float) -> tuple[bool, st
         return False, "Không thể cộng tiền lúc này do lỗi hệ thống."
 
 
+def create_customer_account_by_admin(email: str, password: str, credit: float = 0.0) -> tuple[bool, str]:
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from dashboard.models import CustomerAccount
+    
+    User = get_user_model()
+    email = email.strip().lower()
+    
+    if User.objects.filter(username=email).exists() or User.objects.filter(email=email).exists():
+        return False, "Email hoặc tài khoản này đã tồn tại trong hệ thống."
+        
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                is_active=True
+            )
+            account, _ = CustomerAccount.objects.get_or_create(user=user)
+            if credit > 0:
+                from decimal import Decimal
+                account.credit_limit = Decimal(str(credit))
+                account.save(update_fields=["credit_limit"])
+            return True, f"Tạo tài khoản khách hàng '{email}' thành công với mật khẩu đã cấp."
+    except Exception as e:
+        logger.exception(f"Lỗi khi tạo tài khoản {email}: {e}")
+        return False, "Lỗi hệ thống khi tạo tài khoản."
+
+
 def delete_customer_account_by_admin(email: str) -> tuple[bool, str]:
     from django.contrib.auth import get_user_model
     from django.db import transaction
